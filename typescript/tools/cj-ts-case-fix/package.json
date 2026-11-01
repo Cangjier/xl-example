@@ -1,0 +1,31 @@
+{
+  "name": "cj-ts-case-fix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DSH 插件 case_fix：按 tts 用例的 .infer 编排修复任务——plan 出任务书交给 DSH 自己改，verify 独立验收（边界 + 构建 + 门禁 + 对拍 + code_review），regen 调 case_infer 重新判定 .infer。core 禁止修改。零依赖，只用 Node 内置模块。",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "index.mjs",
+    "src",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\"",
+    "check": "node --check index.mjs && node --check src/config.mjs && node --check src/cases.mjs && node --check src/context.mjs && node --check src/boundary.mjs && node --check src/regen.mjs && node --check src/plan.mjs && node --check src/verify.mjs && node --check src/build.mjs && node --check src/review.mjs && node --check src/fix.mjs && node --check src/tools/fix.mjs"
+  }
+}

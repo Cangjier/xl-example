@@ -46,6 +46,7 @@
     "infer": "node ./typescript/tools/case-infer.mjs",
     "infer:test": "node --test \"typescript/tools/cj-ts-case-infer/tests/*.test.mjs\"",
     "review:test": "node --test \"typescript/tools/cj-ts-code-review/tests/*.test.mjs\"",
+    "fix:test": "node --test \"typescript/tools/cj-ts-case-fix/tests/*.test.mjs\"",
     "tts:impl": "node ./typescript/cases/tts-impl/run.mjs"
   },
   "devDependencies": {

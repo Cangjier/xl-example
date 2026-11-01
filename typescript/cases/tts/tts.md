@@ -89,6 +89,12 @@ node typescript/tools/case-infer.mjs --check <xxx.ts>     # llm determined vs cr
 - `--check` 的状态：`ok` / `late +N`（模型判得比实际创建晚 N 格）/ `early -N` / `unfilled`（llm 还是 `?`）/
   `no-created`（shape token 还没记 CreatedAt）/ `no-shape`（树里没有这个节点）/ `stale`（`.infer` 里的节点 `.ast` 没有）。
   它不修任何东西，只把差异列出来。
+- 反方向也能走：DSH 插件 `typescript/tools/cj-ts-case-fix` 注册了 `case_fix`，它把「按 `.infer` 修实现」
+  编排成任务交给 DSH——`plan` 出任务书（缺口、实现文件、安全边界、验收标准），DSH 自己改，
+  改完 `verify` 独立验收（git 边界 + 构建 + `tts:cases` 门禁 + 对拍 + `code_review`）；
+  `.infer` 本身可疑或想用新判定复核时用 `regen` 重新生成。**`core/` 禁止修改**，可写范围只有
+  `typescript/shapes`，越界在 `verify` 里直接失败。
+  （`npm run fix:test` 是它的离线测试；`plan` 是只读的，可以先用它看缺口。）
 - 节点身份是 `kind + pos + src 起点`：形状会长大（`src` 的右边界会变），所以 `end` 不参与对齐。
 - 2026-10-31 的全量生成与缺口 review（success/ 167 份 `.infer`、42 个实现侧信号、14 个身份冲突用例）见
   [infer-review.md](infer-review.md)。

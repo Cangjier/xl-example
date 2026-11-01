@@ -1,0 +1,61 @@
+# cj-ts-case-fix bundle patch.
+#
+# 只贡献一行：case-fix  Host 插件，注册 `case_fix` 工具。
+#
+# 定位：编排「按 .infer 修实现」这件事，并做独立验收；**改代码的是 DSH 自己**。
+#   - action "plan"   算缺口、找实现文件、给任务书（不调模型、不改盘）；
+#   - action "verify" 边界 + 构建 + 门禁 + 对拍 + code_review，给结论；
+#   - action "regen"  调 case_infer 重新生成 .infer，再走同一套验收。
+#
+# 需要 `tools` 服务；`regen` 另外需要宿主加载了 `llm` 与 `agentDefaultModel`。
+# 审查走同一个 `tools` 服务里的 `code_review`；没注册时退回仓库里的同一份实现
+# （typescript/tools/cj-ts-code-review）。重新判定走 `case_infer`；没注册时退回
+# typescript/tools/cj-ts-case-infer。
+#
+# 安全边界写死：core 禁止修改；用例与 docs/IMPORTANCE.md 不可改；.xl.md 只能落在 editable 里。
+# 所以 `root` 必须指向 xl-example 仓库根目录（默认从插件自身位置推：上四级）。
+
+- insert:
+    - id: case-fix
+      name: 'cj-ts-case-fix'
+      config:
+        # 仓库根目录；留空 = 从插件位置推（typescript/tools/cj-ts-case-fix/src → 上四级）。
+        # root: 'C:/Users/Admin/Documents/GitHub/xl-example'
+
+        # 留空 = 用宿主当前默认模型（agentDefaultModel.currentSelection()）。只有 regen 用模型。
+        # provider: deepseek-official
+        # model: deepseek-flash
+
+        # regen 调 case_infer 时的输出上限 / 超时 / 重试与判定次数。
+        maxTokens: 8192
+        timeoutMs: 180000
+        retries: 1
+        runs: 3             # 一个用例判定几次；调 1 省调用，但更容易有分歧
+
+        # 目录模式下最多处理几个用例（多的跳过，不静默当成功）。
+        maxCases: 8
+
+        # 唯一可写范围。core / 用例 / docs 加不进来（normalizeConfig 直接拒绝）。
+        editable:
+          - typescript/shapes
+
+        # 任务书里的实现上下文预算。大文件按相关片段给。
+        maxContextFiles: 6
+        maxContextBytes: 80000
+        maxFileBytes: 24000
+        excerptLines: 80
+        maxRulesBytes: 16000
+
+        # 构建通道。留空 = 宿主里的 xl_build 工具 + 仓库自己的 tsc；
+        # 没有 xl_build 时写这一条，例如 "npm run build"。
+        # buildCommand: npm run build
+
+        # 构建后跑一次 typescript/cases/tts/run.mjs（success 全绿）当回归门禁。
+        gate: true
+
+        # git 工作区边界检查：core / 用例 / IMPORTANCE / 可写范围之外的 .xl.md 一律判越界。
+        boundary: true
+
+        # 是否在验收时调用 code_review；failOn 是「通过」的门槛：P0 / P1 / P2 / P3 / any。
+        review: true
+        failOn: P0

@@ -54,6 +54,20 @@ function loadParser() {
   return { SyntaxContext, SourceRange, TextDocument, TypescriptTemplate, SourceFileShape };
 }
 
+/** 把 build/ts 下的模块从 require 缓存里清掉，返回清掉的个数。
+ *  同一个进程里重建之后必须清一次：require 按路径缓存，不清就一直读旧实现。
+ *  只清 build/ts 这一棵子树，node_modules 里的 typescript 与其它工具不受影响。 */
+export function clearBuildCache() {
+  let cleared = 0;
+  for (const key of Object.keys(require.cache)) {
+    if (key === BUILD || key.startsWith(BUILD + path.sep)) {
+      delete require.cache[key];
+      cleared++;
+    }
+  }
+  return cleared;
+}
+
 const kindOf = (node) => node.constructor.name.replace(/Shape$/, "");
 
 function collect(node, depth, isLast, out) {
@@ -86,8 +100,14 @@ function collect(node, depth, isLast, out) {
 
 /** 返回 { map, created, final }；key = kind|pos|src 起点，与 .ast / .infer 行用同一套。
  *  map 是「首次出现在树里」的那一格；created 优先取 CreatedRevisionAt（修订后的创建位置），
- *  没有修订才取 ShapeToken.CreatedAt（实际建出形状的那一格），都没有记 null；final 是最终树。 */
-export function traceActual(source, name) {
+ *  没有修订才取 ShapeToken.CreatedAt（实际建出形状的那一格），都没有记 null；final 是最终树。
+ *
+ *  `options.fresh === true` 时先清 build/ts 的 require 缓存再读实现：插件在同一个进程里
+ *  重建之后要用新实现，否则一直读到旧模块。 */
+export function traceActual(source, name, options = {}) {
+  if (options.fresh === true) {
+    clearBuildCache();
+  }
   const parser = loadParser();
   const template = parser.TypescriptTemplate.Create();
   const root = new parser.SourceFileShape(template);
