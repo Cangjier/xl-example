@@ -12,12 +12,15 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { TypeParser } from "./type-parser.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
 import { TypeParameterListShape } from "./type-parameter-list-shape.xl.md"
 import { ConditionalTypeShape } from "./type-node-shapes.xl.md"
+import { InferTypeShape } from "./type-node-shapes.xl.md"
+import { QualifiedNameShape } from "./type-node-shapes.xl.md"
 import { UnionTypeShape } from "./type-node-shapes.xl.md"
 import { IntersectionTypeShape } from "./type-node-shapes.xl.md"
 import { ArrayTypeShape } from "./type-node-shapes.xl.md"
@@ -223,6 +226,97 @@ for (let at = from; at < to; at++) {
 return !expectName;
 ```
 
+## static method IsNameUnit:(unit:Token)=>bool
+
+```ts
+// 类型里能当名字用的单元：已收口的标识符，且不是类型文法自己的词。
+// `extends` / `is` / `asserts` 不在 OperandUtil.Keywords 里，但它们在类型文法里是分隔词，不能当名字建引用。
+if (!(unit instanceof Common) || !unit.Closed) {
+  return false;
+}
+const text = unit.TempToString();
+if (TypeConditionalUtil.IsPrefixText(text) || TypeConditionalUtil.IsKeywordText(text)) {
+  return false;
+}
+if (text === "extends" || text === "is" || text === "asserts") {
+  return false;
+}
+return OperandUtil.IsIdentifier(text) && !OperandUtil.IsKeyword(text);
+```
+
+## static method IsArgumentStart:(units:Array<Token>, tokenIndex:int)=>bool
+
+```ts
+// 实参表里「当前实参还没有任何代码单元」：中间只隔着 trivia，最左边是表自己的 `<`（Data[0]），
+// 或者上一个实参后面的 `,`。嵌套的实参表是各自的表，里层的 `,` 不会出现在这里。
+for (let at = tokenIndex - 1; at >= 1; at--) {
+  const item = units[at];
+  if (item.IsTriviaToken) {
+    continue;
+  }
+  return item instanceof Symbol && item.Closed && item.Is(",");
+}
+return true;
+```
+
+## static method IsSegmentName:(units:Array<Token>, tokenIndex:int)=>bool
+
+```ts
+// 段内唯一的一段名字在它收口的那一格就是一颗裸引用：`T`、`Array`、`U`。
+// 后面的 `.` / `<` / `[` / `extends` 都只是在这颗引用上继续长，kind 不会再变，
+// 所以不必等段结束（`?` / `:` / EOF）才建。只看 tokenIndex 及之前的单元。
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+if (!TypeConditionalUtil.IsNameUnit(units[tokenIndex])) {
+  return false;
+}
+const start = TypeConditionalUtil.RunStart(units);
+return TypeConditionalUtil.CodeCount(units, start, tokenIndex + 1) === 1;
+```
+
+## static method IsQualifiedTail:(units:Array<Token>, tokenIndex:int)=>bool
+
+```ts
+// `NS.Array` 的右半收口：`.` 左边是名字收口那一格建好的引用，右边是刚收口的名字。
+// 判定与建出在同一格，限定名因此取右半收口的位置。
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+if (!TypeConditionalUtil.IsNameUnit(units[tokenIndex])) {
+  return false;
+}
+const start = TypeConditionalUtil.RunStart(units);
+if (TypeConditionalUtil.CodeCount(units, start, tokenIndex + 1) !== 2) {
+  return false;
+}
+const dot = TypeConditionalUtil.FirstCodeIndex(units, start, tokenIndex + 1);
+if (!(units[dot] instanceof Symbol) || !units[dot].Closed || !units[dot].Is(".")) {
+  return false;
+}
+const left = ItemUtil.PreviousCode(units, dot - 1);
+return left === TypeConditionalUtil.LastTypeIndex(units) && units[left] instanceof TypeReferenceShape;
+```
+
+## static method IsReferenceTail:(units:Array<Token>, tokenIndex:int)=>bool
+
+```ts
+// `<` 紧接在一颗已经建好的引用后面（名字收口那一格建的），中间只有 trivia：
+// 实参表挂在这颗引用上，不再重新建引用。
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const unit = units[tokenIndex];
+if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is("<")) {
+  return false;
+}
+const start = TypeConditionalUtil.RunStart(units);
+if (TypeConditionalUtil.CodeCount(units, start, tokenIndex) !== 0) {
+  return false;
+}
+return TypeConditionalUtil.LastTypeShape(units) instanceof TypeReferenceShape;
+```
+
 ## static method CanOpenTypeReference:(units:Array<Token>, tokenIndex:int)=>bool
 
 ```ts
@@ -236,6 +330,9 @@ const unit = units[tokenIndex];
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is("<")) {
   return false;
 }
+if (TypeConditionalUtil.IsReferenceTail(units, tokenIndex)) {
+  return true;
+}
 const start = TypeConditionalUtil.RunStart(units);
 if (TypeConditionalUtil.CodeCount(units, start, tokenIndex) === 0) {
   return false;
@@ -243,7 +340,55 @@ if (TypeConditionalUtil.CodeCount(units, start, tokenIndex) === 0) {
 return TypeConditionalUtil.IsNameRun(units, start, tokenIndex);
 ```
 
-## static method OpenTypeReference:(conditional:Token, tokenIndex:int)=>Token
+## static method BuildName:(conditional:Token, tokenIndex:int)=>TypeReferenceShape
+
+```ts
+// 名字收口那一格就建出裸引用：`CreatedAt` 由调用方盖成这一格。
+// 名字从段宿主里摘走，引用挂到「最后一个类型」所在的容器（段宿主或它的联合/交叉运算符）。
+const units = conditional.Data;
+const unit = units[tokenIndex] as Common;
+const pos = ItemUtil.PositionOf(units, tokenIndex);
+const reference = new TypeReferenceShape(conditional.Template);
+reference.Pos = pos;
+reference.SignIn(unit.SourceRange.Start);
+reference.Add(IdentifierShape.FromCommon(unit, pos));
+reference.SourceRange.End = unit.SourceRange.End;
+reference.Closed = true;
+units.splice(tokenIndex, 1);
+TypeConditionalUtil.AppendTo(TypeConditionalUtil.Target(conditional), reference);
+return reference;
+```
+
+## static method GrowQualified:(conditional:Token, tokenIndex:int)=>QualifiedNameShape
+
+```ts
+// `NS.Array`：`NS` 那一格已经建了引用，右半收口时把左边的名字换成限定名。
+// 引用本身不重建，`CreatedAt` 仍停在 `NS` 那一格；限定名与右半记这一格。
+const units = conditional.Data;
+const start = TypeConditionalUtil.RunStart(units);
+const dot = TypeConditionalUtil.FirstCodeIndex(units, start, tokenIndex + 1);
+const left = ItemUtil.PreviousCode(units, dot - 1);
+const reference = units[left] as TypeReferenceShape;
+const base = reference.Data.length > 0 ? reference.Data[0] : null;
+if (base === null) {
+  throw new Error("TypeConditionalUtil: 限定名缺少左半");
+}
+const right = IdentifierShape.FromCommon(units[tokenIndex] as Common, ItemUtil.PositionOf(units, tokenIndex));
+const qualified = new QualifiedNameShape(conditional.Template);
+qualified.Pos = TypeShape.PosOfNode(base);
+qualified.SignIn(base.SourceRange.Start);
+qualified.Add(base);
+qualified.Add(right);
+qualified.SourceRange.End = right.SourceRange.End;
+qualified.Closed = true;
+reference.Data.splice(0, 1, qualified);
+qualified.Parent = reference;
+reference.SourceRange.End = right.SourceRange.End;
+units.splice(dot, tokenIndex + 1 - dot);
+return qualified;
+```
+
+## static method OpenTypeReference:(conditional:Token, tokenIndex:int, context:SyntaxContext)=>Token
 
 ```ts
 // 名字与 `<` 从段里摘出来：引用持有名字，名字后的 `<` 已经定死「实参表」，
@@ -251,22 +396,32 @@ return TypeConditionalUtil.IsNameRun(units, start, tokenIndex);
 // 之后由 TypeArgumentEndPossibleShape 在配平的 `>` 那格把表溶解成实参。
 // 名字与 `<` 之间的 trivia 不保留——它本来就会被 Close 丢掉。
 const units = conditional.Data;
-const start = TypeConditionalUtil.RunStart(units);
-const first = TypeConditionalUtil.FirstCodeIndex(units, start, tokenIndex);
 const open = units[tokenIndex] as Symbol;
-const name = TypeParser.ParseEntityNamePrefix(units, first, tokenIndex, conditional.Template);
-const reference = new TypeReferenceShape(conditional.Template);
-reference.Pos = TypeShape.PosOfNode(name);
-reference.SignIn(name.SourceRange.Start);
-reference.Add(name);
+const pos = ItemUtil.PositionOf(units, tokenIndex);
+let reference: TypeReferenceShape;
+if (TypeConditionalUtil.IsReferenceTail(units, tokenIndex)) {
+  // 名字收口那一格已经把引用建好了：`<` 只把实参表挂上去，引用不重建。
+  reference = TypeConditionalUtil.LastTypeShape(units) as TypeReferenceShape;
+  units.splice(tokenIndex, 1);
+  reference.Closed = false;
+} else {
+  const start = TypeConditionalUtil.RunStart(units);
+  const first = TypeConditionalUtil.FirstCodeIndex(units, start, tokenIndex);
+  const name = TypeParser.ParseEntityNamePrefix(units, first, tokenIndex, conditional.Template);
+  reference = new TypeReferenceShape(conditional.Template);
+  reference.Pos = TypeShape.PosOfNode(name);
+  reference.SignIn(name.SourceRange.Start);
+  reference.Add(name);
+  units.splice(first, tokenIndex + 1 - first);
+  // 段里前面已经有联合/交叉时，引用是那个运算符的下一个成员，不能直接挂在段宿主下。
+  TypeConditionalUtil.AppendTo(TypeConditionalUtil.Target(conditional), reference);
+  PossibleShape.StampAll(reference, context.Index);
+}
 const list = new TypeArgumentListShape(conditional.Template);
-list.Pos = ItemUtil.PositionOf(units, tokenIndex);
+list.Pos = pos;
 list.SignIn(open.SourceRange.Start);
 list.Add(open);
 reference.Add(list);
-units.splice(first, tokenIndex + 1 - first);
-// 段里前面已经有联合/交叉时，引用是那个运算符的下一个成员，不能直接挂在段宿主下。
-TypeConditionalUtil.Target(conditional).Add(reference);
 // 挂载链沿 Parent 走：字符要穿过中间的运算符、引用，才到得了实参表。
 let child:Token = reference;
 let owner:Token | null = reference.Parent;
@@ -279,7 +434,8 @@ while (owner !== null) {
   owner = owner.Parent;
 }
 reference.MountedUnit = list;
-list.CatalogGuide = new CatalogGuide([], new TypeArgumentEndPossibleShape());
+// 实参表里 `infer` 收口就建 InferType，其余单元等配平的 `>` 一次收成实参。
+list.CatalogGuide = new CatalogGuide([new TypeArgumentInferPossibleShape()], new TypeArgumentEndPossibleShape());
 return reference;
 ```
 
@@ -917,6 +1073,12 @@ const start = TypeConditionalUtil.RunStart(units);
 if (TypeConditionalUtil.CanOpenTypeReference(units, tokenIndex)) {
   return true;
 }
+if (TypeConditionalUtil.IsSegmentName(units, tokenIndex)) {
+  return true;
+}
+if (TypeConditionalUtil.IsQualifiedTail(units, tokenIndex)) {
+  return true;
+}
 if (TypeConditionalUtil.IsAtomUnit(unit)) {
   return TypeConditionalUtil.CodeCount(units, start, tokenIndex + 1) === 1;
 }
@@ -938,8 +1100,17 @@ return false;
 const conditional = host as ConditionalTypeShape;
 const units = conditional.Data;
 const unit = units[tokenIndex];
+// 名字收口那一格就建引用 / 限定名：`CreatedAt` 就是这一格，后面的 `.` / `<` 在它身上继续长。
+if (TypeConditionalUtil.IsQualifiedTail(units, tokenIndex)) {
+  const qualified = TypeConditionalUtil.GrowQualified(conditional, tokenIndex);
+  PossibleShape.StampAll(qualified, context.Index);
+  return qualified;
+}
+if (TypeConditionalUtil.IsSegmentName(units, tokenIndex)) {
+  return this.StampCreated(TypeConditionalUtil.BuildName(conditional, tokenIndex), context);
+}
 if (TypeConditionalUtil.CanOpenTypeReference(units, tokenIndex)) {
-  TypeConditionalUtil.OpenTypeReference(conditional, tokenIndex);
+  TypeConditionalUtil.OpenTypeReference(conditional, tokenIndex, context);
   return this.StampCreated(conditional, context);
 }
 if (TypeConditionalUtil.IsOperatorUnit(unit)) {
@@ -958,7 +1129,12 @@ if (unit instanceof Symbol && unit.Closed && unit.Is("]")) {
     return this.StampCreated(conditional, context);
   }
 }
-TypeConditionalUtil.ParseRun(conditional, tokenIndex + 1);
+// 这一段现在只剩一个「关闭即定型」的单元（关键字类型、字面量、收口括号）：当场解析，
+// 建出来的节点就记在这一格。
+const node = TypeConditionalUtil.ParseRun(conditional, tokenIndex + 1);
+if (node !== null) {
+  PossibleShape.StampAll(node, context.Index);
+}
 return this.StampCreated(conditional, context);
 ```
 
@@ -1164,5 +1340,67 @@ const close = list.Data[list.Data.length - 1];
 TypeConditionalUtil.FinishArgumentList(list, context);
 return this.StampCreated(close, context);
 ```
+
+# class TypeArgumentInferPossibleShape extends PossibleShape
+
+## static method CanBuild:(units:Array<Token>, tokenIndex:int)=>bool
+
+```ts
+// `infer` 收口那一格，`infer U` 这颗 InferType 就已经定死了：类型参数只是随后流进来。
+// 判定只看它是不是当前实参的第一个代码单元，不看后面。
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const unit = units[tokenIndex];
+return unit instanceof Common
+  && unit.Closed
+  && unit.TempToString() === "infer"
+  && TypeConditionalUtil.IsArgumentStart(units, tokenIndex);
+```
+
+## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+
+```ts
+if (!(host instanceof TypeArgumentListShape)) {
+  return ShapeStates.Reject;
+}
+const units = host.Data;
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return ShapeStates.Uncertain;
+}
+if (TypeArgumentInferPossibleShape.CanBuild(units, tokenIndex)) {
+  return ShapeStates.Accept;
+}
+// `,` / `>` 是实参边界，这一格之后不可能再是 `infer`：让位给终结候选，免得两边同时成立。
+if (units[tokenIndex] instanceof Symbol && units[tokenIndex].Closed) {
+  return ShapeStates.Reject;
+}
+return TypeConditionalUtil.IsArgumentStart(units, tokenIndex) ? ShapeStates.Uncertain : ShapeStates.Reject;
+```
+
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+
+```ts
+return TypeArgumentInferPossibleShape.CanBuild(units, tokenIndex);
+```
+
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+
+```ts
+// `infer` 就地换成一颗空的 InferType：`CreatedAt` 是这一格，`U` 与约束随后作为 basic token
+// 留在实参表里，配平的 `>` 那一格由 TypeParser 填进它的 TypeParameter。
+const list = host as TypeArgumentListShape;
+const units = list.Data;
+const unit = units[tokenIndex] as Common;
+const pos = ItemUtil.PositionOf(units, tokenIndex);
+const infer = new InferTypeShape(list.Template);
+infer.Pos = pos;
+infer.SignIn(unit.SourceRange.Start);
+infer.SourceRange.End = unit.SourceRange.End;
+units.splice(tokenIndex, 1, infer);
+infer.Parent = list;
+return this.StampCreated(infer, context);
+```
+
 
 

@@ -181,6 +181,20 @@ if (parser.Index < parser.Limit) {
 return parameter;
 ```
 
+## static method ParseTypeParameterTail:(units:Array<Token>, from:int, to:int, template:Template)=>Token
+
+```ts
+// 增量路径已经建好 InferType：实参表溶解时只把 `infer` 之后那一段（名字 / 约束）交给单参数文法。
+const parser = new TypeParser(units, to, template);
+parser.Index = from;
+const parameter = parser.ParseTypeParameter();
+parser.SkipTrivia();
+if (parser.Index !== parser.Limit) {
+  throw parser.MakeError("infer 之后仍有多余单元");
+}
+return parameter;
+```
+
 ## static method ParseTypeArgumentTail:(units:Array<Token>, limit:int, template:Template)=>TypeArgumentTail
 
 ```ts
@@ -559,6 +573,11 @@ if (unit instanceof TypeReferenceShape) {
   this.Index++;
   return this.GrowTypeReference(unit);
 }
+// `infer` 收口那一格建好的 InferType：实参表溶解时把剩下的名字 / 约束填进去。
+if (unit instanceof InferTypeShape) {
+  this.Index++;
+  return this.GrowInferType(unit);
+}
 if (unit instanceof Symbol) {
   const text = unit.TempToString();
   if (text === "(") {
@@ -856,6 +875,61 @@ if (this.PeekSymbol() === "<") {
   node.SourceRange.End = tail.End;
 }
 return node;
+```
+
+## private method GrowInferType:(infer:InferTypeShape)=>Token
+
+```ts
+// `infer` 那一格已经建好的 InferType：这句实参剩下的名字 / 约束填进它的 TypeParameter。
+// 走到这里说明实参表要溶解了（配平的 `>` 或 `,`），这一段就是这颗 InferType 的全部内容。
+const end = this.NextArgumentEnd(this.Index);
+const parameter = TypeParser.ParseTypeParameterTail(this.Units, this.Index, end, this.Template);
+infer.Data = [];
+infer.Add(parameter);
+infer.SourceRange.End = parameter.SourceRange.End;
+infer.Closed = true;
+this.Index = end;
+return infer;
+```
+
+## private method NextArgumentEnd:(from:int)=>int
+
+```ts
+// 实参的边界是深度 0 上的 `,` 或 `>`：`infer U extends Map<string, number>` 里的 `<>` 不算边界。
+let paren = 0;
+let square = 0;
+let brace = 0;
+let angle = 0;
+for (let at = from; at < this.Limit; at++) {
+  const unit = this.Units[at];
+  if (!(unit instanceof Symbol)) {
+    continue;
+  }
+  const text = unit.TempToString();
+  if (text === "(") {
+    paren++;
+  } else if (text === ")") {
+    paren--;
+  } else if (text === "[") {
+    square++;
+  } else if (text === "]") {
+    square--;
+  } else if (text === "{") {
+    brace++;
+  } else if (text === "}") {
+    brace--;
+  } else if (text === "<") {
+    angle++;
+  } else if (text === ">" || text === ">>" || text === ">>>") {
+    if (angle === 0 && paren === 0 && square === 0 && brace === 0) {
+      return at;
+    }
+    angle -= text.length;
+  } else if (text === "," && angle === 0 && paren === 0 && square === 0 && brace === 0) {
+    return at;
+  }
+}
+return this.Limit;
 ```
 
 ## private method ParseEntityName:()=>Token

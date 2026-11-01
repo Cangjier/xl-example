@@ -543,7 +543,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ StringKeywordShape  pos=21  src=[22,28)  text="string"
       ├─ WrapSymbol  src=[30,31)  text=" "
-      └─ TypeReferenceShape  pos=30  src=[31,...)
+      └─ TypeReferenceShape  pos=30  src=[31,36)
          ├─ IdentifierShape  pos=30  src=[31,36)  text="Array"
          └─ TypeArgumentListShape  pos=36  src=[36,...)
             └─ Symbol  src=[36,37)  text="<"
@@ -564,7 +564,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ StringKeywordShape  pos=21  src=[22,28)  text="string"
       ├─ WrapSymbol  src=[30,31)  text=" "
-      └─ TypeReferenceShape  pos=30  src=[31,...)
+      └─ TypeReferenceShape  pos=30  src=[31,36)
          ├─ IdentifierShape  pos=30  src=[31,36)  text="Array"
          └─ TypeArgumentListShape  pos=36  src=[36,...)
             ├─ Symbol  src=[36,37)  text="<"
@@ -748,7 +748,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  └─ TypeReferenceShape  pos=37  src=[37,38)
       │     └─ IdentifierShape  pos=37  src=[37,38)  text="T"
       ├─ WrapSymbol  src=[41,42)  text=" "
-      └─ TypeReferenceShape  pos=41  src=[42,...)
+      └─ TypeReferenceShape  pos=41  src=[42,45)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
          └─ TypeArgumentListShape  pos=45  src=[45,...)
             └─ Symbol  src=[45,46)  text="<"
@@ -774,7 +774,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  └─ TypeReferenceShape  pos=37  src=[37,38)
       │     └─ IdentifierShape  pos=37  src=[37,38)  text="T"
       ├─ WrapSymbol  src=[41,42)  text=" "
-      └─ TypeReferenceShape  pos=41  src=[42,...)
+      └─ TypeReferenceShape  pos=41  src=[42,45)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
          └─ TypeArgumentListShape  pos=45  src=[45,...)
             ├─ Symbol  src=[45,46)  text="<"
@@ -801,7 +801,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  └─ TypeReferenceShape  pos=37  src=[37,38)
       │     └─ IdentifierShape  pos=37  src=[37,38)  text="T"
       ├─ WrapSymbol  src=[41,42)  text=" "
-      └─ TypeReferenceShape  pos=41  src=[42,...)
+      └─ TypeReferenceShape  pos=41  src=[42,45)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
          └─ TypeArgumentListShape  pos=45  src=[45,...)
             ├─ Symbol  src=[45,46)  text="<"
@@ -828,7 +828,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  └─ TypeReferenceShape  pos=37  src=[37,38)
       │     └─ IdentifierShape  pos=37  src=[37,38)  text="T"
       ├─ WrapSymbol  src=[41,42)  text=" "
-      └─ TypeReferenceShape  pos=41  src=[42,...)
+      └─ TypeReferenceShape  pos=41  src=[42,45)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
          └─ TypeArgumentListShape  pos=45  src=[45,...)
             ├─ Symbol  src=[45,46)  text="<"
@@ -855,7 +855,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  └─ TypeReferenceShape  pos=37  src=[37,38)
       │     └─ IdentifierShape  pos=37  src=[37,38)  text="T"
       ├─ WrapSymbol  src=[41,42)  text=" "
-      └─ TypeReferenceShape  pos=41  src=[42,...)
+      └─ TypeReferenceShape  pos=41  src=[42,45)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
          └─ TypeArgumentListShape  pos=45  src=[45,...)
             ├─ Symbol  src=[45,46)  text="<"
@@ -882,7 +882,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  └─ TypeReferenceShape  pos=37  src=[37,38)
       │     └─ IdentifierShape  pos=37  src=[37,38)  text="T"
       ├─ WrapSymbol  src=[41,42)  text=" "
-      └─ TypeReferenceShape  pos=41  src=[42,...)
+      └─ TypeReferenceShape  pos=41  src=[42,45)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
          └─ TypeArgumentListShape  pos=45  src=[45,...)
             ├─ Symbol  src=[45,46)  text="<"
@@ -909,7 +909,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  └─ TypeReferenceShape  pos=37  src=[37,38)
       │     └─ IdentifierShape  pos=37  src=[37,38)  text="T"
       ├─ WrapSymbol  src=[41,42)  text=" "
-      └─ TypeReferenceShape  pos=41  src=[42,...)
+      └─ TypeReferenceShape  pos=41  src=[42,45)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
          └─ TypeArgumentListShape  pos=45  src=[45,...)
             ├─ Symbol  src=[45,46)  text="<"
@@ -936,7 +936,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  └─ TypeReferenceShape  pos=37  src=[37,38)
       │     └─ IdentifierShape  pos=37  src=[37,38)  text="T"
       ├─ WrapSymbol  src=[41,42)  text=" "
-      └─ TypeReferenceShape  pos=41  src=[42,...)
+      └─ TypeReferenceShape  pos=41  src=[42,45)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
          └─ TypeArgumentListShape  pos=45  src=[45,...)
             ├─ Symbol  src=[45,46)  text="<"
@@ -964,7 +964,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  └─ TypeReferenceShape  pos=37  src=[37,38)
       │     └─ IdentifierShape  pos=37  src=[37,38)  text="T"
       ├─ WrapSymbol  src=[41,42)  text=" "
-      └─ TypeReferenceShape  pos=41  src=[42,...)
+      └─ TypeReferenceShape  pos=41  src=[42,45)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
          └─ TypeArgumentListShape  pos=45  src=[45,...)
             ├─ Symbol  src=[45,46)  text="<"
@@ -993,7 +993,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  └─ TypeReferenceShape  pos=37  src=[37,38)
       │     └─ IdentifierShape  pos=37  src=[37,38)  text="T"
       ├─ WrapSymbol  src=[41,42)  text=" "
-      └─ TypeReferenceShape  pos=41  src=[42,...)
+      └─ TypeReferenceShape  pos=41  src=[42,45)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
          └─ TypeArgumentListShape  pos=45  src=[45,...)
             ├─ Symbol  src=[45,46)  text="<"

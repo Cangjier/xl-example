@@ -658,7 +658,8 @@ SourceFileShape  pos=-  src=[0,...)
       │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
       │     └─ TemplateTailShape  pos=33  src=[33,35)
       ├─ WrapSymbol  src=[37,38)  text=" "
-      ├─ Common  src=[38,39)  text="R"
+      ├─ TypeReferenceShape  pos=37  src=[38,39)
+      │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
       └─ WrapSymbol  src=[39,40)  text=" "
 ```
 
@@ -683,7 +684,8 @@ SourceFileShape  pos=-  src=[0,...)
       │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
       │     └─ TemplateTailShape  pos=33  src=[33,35)
       ├─ WrapSymbol  src=[37,38)  text=" "
-      ├─ Common  src=[38,39)  text="R"
+      ├─ TypeReferenceShape  pos=37  src=[38,39)
+      │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
       ├─ WrapSymbol  src=[39,40)  text=" "
       └─ Symbol  src=[40,41)  text=":"
 ```
@@ -708,6 +710,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     │  └─ TypeParameterShape  pos=31  src=[32,33)
       │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
       │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ WrapSymbol  src=[37,38)  text=" "
       ├─ TypeReferenceShape  pos=37  src=[38,39)
       │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
       └─ WrapSymbol  src=[41,42)  text=" "
@@ -733,6 +736,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     │  └─ TypeParameterShape  pos=31  src=[32,33)
       │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
       │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ WrapSymbol  src=[37,38)  text=" "
       ├─ TypeReferenceShape  pos=37  src=[38,39)
       │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
       ├─ WrapSymbol  src=[41,42)  text=" "
@@ -759,6 +763,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     │  └─ TypeParameterShape  pos=31  src=[32,33)
       │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
       │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ WrapSymbol  src=[37,38)  text=" "
       ├─ TypeReferenceShape  pos=37  src=[38,39)
       │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
       ├─ WrapSymbol  src=[41,42)  text=" "
@@ -785,6 +790,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     │  └─ TypeParameterShape  pos=31  src=[32,33)
       │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
       │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ WrapSymbol  src=[37,38)  text=" "
       ├─ TypeReferenceShape  pos=37  src=[38,39)
       │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
       ├─ WrapSymbol  src=[41,42)  text=" "
@@ -811,6 +817,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     │  └─ TypeParameterShape  pos=31  src=[32,33)
       │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
       │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ WrapSymbol  src=[37,38)  text=" "
       ├─ TypeReferenceShape  pos=37  src=[38,39)
       │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
       ├─ WrapSymbol  src=[41,42)  text=" "
@@ -837,6 +844,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     │  └─ TypeParameterShape  pos=31  src=[32,33)
       │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
       │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ WrapSymbol  src=[37,38)  text=" "
       ├─ TypeReferenceShape  pos=37  src=[38,39)
       │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
       ├─ WrapSymbol  src=[41,42)  text=" "
@@ -863,6 +871,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     │  └─ TypeParameterShape  pos=31  src=[32,33)
       │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
       │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ WrapSymbol  src=[37,38)  text=" "
       ├─ TypeReferenceShape  pos=37  src=[38,39)
       │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
       ├─ NeverKeywordShape  pos=41  src=[42,47)  text="never"

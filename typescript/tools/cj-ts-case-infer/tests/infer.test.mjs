@@ -62,7 +62,7 @@ const NUMBERS = [
   { kind: 'InferType', pos: 28, start: 28, char: 33 },
   { kind: 'TypeParameter', pos: 33, start: 34, char: 35 },
   { kind: 'Identifier', pos: 33, start: 34, char: 35 },
-  { kind: 'TypeReference', pos: 38, start: 39, char: 41 },
+  { kind: 'TypeReference', pos: 38, start: 39, char: 40 },
   { kind: 'Identifier', pos: 38, start: 39, char: 40 },
   { kind: 'NeverKeyword', pos: 42, start: 43, char: 48 },
 ]
@@ -102,16 +102,17 @@ test('正确的模型输出：写盘 + 对拍', async (t) => {
   assert.equal(text.includes('-> llm ?'), false)
   // 根在第一个字符之前就存在：位置 0。
   assert.match(text, /\/\/ "【t:0】ype A"/)
-  // 这颗形状还没写 create 入口：created 侧记 ?，不是拿别的格冒充。
-  assert.match(text, /\/\/ \? -> llm "Array【<:27】infer"/)
+  // 名字收口那一格就建出引用 / `infer`，created 与 llm 一致，行末不再有差异注记。
+  assert.match(text, /\/\/ "Array【<:27】infer"/)
+  assert.equal(text.includes('-> llm'), false)
 
-  // created at 来自 shape token：10 一致 / 1 early / 5 没有 CreatedAt
+  // created at 来自 shape token：16 个节点全部在「能确定」的那一格增量建出。
   // （根 SourceFile 记 0；头部 TypeParameter 建在 `<` 的 6；正文第一个名字的 TypeReference 建在名字收口的 13）
   assert.equal(result.check.available, true)
   assert.equal(result.check.total, 16)
-  assert.equal(result.check.ok, 10)
-  assert.equal(result.check.early, 1)
-  assert.equal(result.check.unknown, 5)
+  assert.equal(result.check.ok, 16)
+  assert.equal(result.check.early, 0)
+  assert.equal(result.check.unknown, 0)
 })
 
 test('已有 .infer 时拒绝覆盖，除非 overwrite: true', async () => {

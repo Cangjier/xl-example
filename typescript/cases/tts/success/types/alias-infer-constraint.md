@@ -383,7 +383,7 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             └─ Symbol  src=[27,28)  text="<"
@@ -403,7 +403,7 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
@@ -424,7 +424,7 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
@@ -445,7 +445,7 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
@@ -466,7 +466,7 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
@@ -487,7 +487,7 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
@@ -508,11 +508,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             └─ WrapSymbol  src=[33,34)  text=" "
 ```
 
@@ -530,11 +530,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             └─ Common  src=[34,35)  text="U"
 ```
@@ -553,11 +553,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             └─ WrapSymbol  src=[35,36)  text=" "
@@ -577,11 +577,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -602,11 +602,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -627,11 +627,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -652,11 +652,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -677,11 +677,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -702,11 +702,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -727,11 +727,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -752,11 +752,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -778,11 +778,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -805,11 +805,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -832,11 +832,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -859,11 +859,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -886,11 +886,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -913,11 +913,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ TypeReferenceShape  pos=11  src=[12,13)
       │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
       ├─ WrapSymbol  src=[21,22)  text=" "
-      └─ TypeReferenceShape  pos=21  src=[22,...)
+      └─ TypeReferenceShape  pos=21  src=[22,27)
          ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
          └─ TypeArgumentListShape  pos=27  src=[27,...)
             ├─ Symbol  src=[27,28)  text="<"
-            ├─ Common  src=[28,33)  text="infer"
+            ├─ InferTypeShape  pos=28  src=[28,33)
             ├─ WrapSymbol  src=[33,34)  text=" "
             ├─ Common  src=[34,35)  text="U"
             ├─ WrapSymbol  src=[35,36)  text=" "
@@ -1063,7 +1063,8 @@ SourceFileShape  pos=-  src=[0,...)
       │        ├─ IdentifierShape  pos=33  src=[34,35)  text="U"
       │        └─ StringKeywordShape  pos=43  src=[44,50)  text="string"
       ├─ WrapSymbol  src=[53,54)  text=" "
-      ├─ Common  src=[54,55)  text="U"
+      ├─ TypeReferenceShape  pos=53  src=[54,55)
+      │  └─ IdentifierShape  pos=53  src=[54,55)  text="U"
       └─ WrapSymbol  src=[55,56)  text=" "
 ```
 
@@ -1088,7 +1089,8 @@ SourceFileShape  pos=-  src=[0,...)
       │        ├─ IdentifierShape  pos=33  src=[34,35)  text="U"
       │        └─ StringKeywordShape  pos=43  src=[44,50)  text="string"
       ├─ WrapSymbol  src=[53,54)  text=" "
-      ├─ Common  src=[54,55)  text="U"
+      ├─ TypeReferenceShape  pos=53  src=[54,55)
+      │  └─ IdentifierShape  pos=53  src=[54,55)  text="U"
       ├─ WrapSymbol  src=[55,56)  text=" "
       └─ Symbol  src=[56,57)  text=":"
 ```
@@ -1113,6 +1115,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     └─ TypeParameterShape  pos=33  src=[34,50)
       │        ├─ IdentifierShape  pos=33  src=[34,35)  text="U"
       │        └─ StringKeywordShape  pos=43  src=[44,50)  text="string"
+      ├─ WrapSymbol  src=[53,54)  text=" "
       ├─ TypeReferenceShape  pos=53  src=[54,55)
       │  └─ IdentifierShape  pos=53  src=[54,55)  text="U"
       └─ WrapSymbol  src=[57,58)  text=" "
@@ -1138,6 +1141,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     └─ TypeParameterShape  pos=33  src=[34,50)
       │        ├─ IdentifierShape  pos=33  src=[34,35)  text="U"
       │        └─ StringKeywordShape  pos=43  src=[44,50)  text="string"
+      ├─ WrapSymbol  src=[53,54)  text=" "
       ├─ TypeReferenceShape  pos=53  src=[54,55)
       │  └─ IdentifierShape  pos=53  src=[54,55)  text="U"
       ├─ WrapSymbol  src=[57,58)  text=" "
@@ -1164,6 +1168,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     └─ TypeParameterShape  pos=33  src=[34,50)
       │        ├─ IdentifierShape  pos=33  src=[34,35)  text="U"
       │        └─ StringKeywordShape  pos=43  src=[44,50)  text="string"
+      ├─ WrapSymbol  src=[53,54)  text=" "
       ├─ TypeReferenceShape  pos=53  src=[54,55)
       │  └─ IdentifierShape  pos=53  src=[54,55)  text="U"
       ├─ WrapSymbol  src=[57,58)  text=" "
@@ -1190,6 +1195,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     └─ TypeParameterShape  pos=33  src=[34,50)
       │        ├─ IdentifierShape  pos=33  src=[34,35)  text="U"
       │        └─ StringKeywordShape  pos=43  src=[44,50)  text="string"
+      ├─ WrapSymbol  src=[53,54)  text=" "
       ├─ TypeReferenceShape  pos=53  src=[54,55)
       │  └─ IdentifierShape  pos=53  src=[54,55)  text="U"
       ├─ WrapSymbol  src=[57,58)  text=" "
@@ -1216,6 +1222,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     └─ TypeParameterShape  pos=33  src=[34,50)
       │        ├─ IdentifierShape  pos=33  src=[34,35)  text="U"
       │        └─ StringKeywordShape  pos=43  src=[44,50)  text="string"
+      ├─ WrapSymbol  src=[53,54)  text=" "
       ├─ TypeReferenceShape  pos=53  src=[54,55)
       │  └─ IdentifierShape  pos=53  src=[54,55)  text="U"
       ├─ WrapSymbol  src=[57,58)  text=" "
@@ -1242,6 +1249,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     └─ TypeParameterShape  pos=33  src=[34,50)
       │        ├─ IdentifierShape  pos=33  src=[34,35)  text="U"
       │        └─ StringKeywordShape  pos=43  src=[44,50)  text="string"
+      ├─ WrapSymbol  src=[53,54)  text=" "
       ├─ TypeReferenceShape  pos=53  src=[54,55)
       │  └─ IdentifierShape  pos=53  src=[54,55)  text="U"
       ├─ WrapSymbol  src=[57,58)  text=" "
@@ -1268,6 +1276,7 @@ SourceFileShape  pos=-  src=[0,...)
       │     └─ TypeParameterShape  pos=33  src=[34,50)
       │        ├─ IdentifierShape  pos=33  src=[34,35)  text="U"
       │        └─ StringKeywordShape  pos=43  src=[44,50)  text="string"
+      ├─ WrapSymbol  src=[53,54)  text=" "
       ├─ TypeReferenceShape  pos=53  src=[54,55)
       │  └─ IdentifierShape  pos=53  src=[54,55)  text="U"
       ├─ NeverKeywordShape  pos=57  src=[58,63)  text="never"
