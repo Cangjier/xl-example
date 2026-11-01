@@ -57,7 +57,7 @@ n=4000 时相差约 **340 倍**，曲线从二次变平。
 - 如果可以增量创建形状，但使用全量创建形状，则质量等级为差。
 
 ### possible compute/build 行为规范
-- 只允许查看tokenIndex之前，禁止查看tokenIndex之后，因为此时tokenIndex之后的数据不一定准备好。
+- 只允许查看tokenIndex之前，禁止查看tokenIndex之后，因为此时tokenIndex之后的数据不一定准备好。（包括过程中使用的工具函数）
 - compute/build过程中发生的异常禁止catch吃掉，这些异常是possible诊断，是用户期望看到的信息。
 - possible/build禁止跳跃式处理（除了trivia），如 shape1, basic token1, shape2, ...; 此时basic token1尚未被消费，必须前置basic token确定形状后，才能处理后续。
 
