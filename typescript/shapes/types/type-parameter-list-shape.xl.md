@@ -11,9 +11,10 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
-import { TypeParser } from "./type-parser.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
 import { TypeParameterShape } from "./type-node-shapes.xl.md"
+import { TypeBalanceUtil } from "./type-balance-util.xl.md"
+import { TypeParserApi } from "./type-parser-api.xl.md"
 ```
 
 # namespace cangjie
@@ -65,7 +66,7 @@ const unit = units[tokenIndex];
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(">")) {
   return false;
 }
-return TypeParser.IsBalanced(units, tokenIndex);
+return TypeBalanceUtil.IsBalanced(units, tokenIndex);
 ```
 
 ## static method IsParameterSeparator:(units:Array<Token>, tokenIndex:int)=>bool
@@ -80,7 +81,7 @@ const unit = units[tokenIndex];
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(",")) {
   return false;
 }
-if (!TypeParser.IsBalanced(units, tokenIndex)) {
+if (!TypeBalanceUtil.IsBalanced(units, tokenIndex)) {
   return false;
 }
 let code = 0;
@@ -138,7 +139,7 @@ if (code === 0) {
   this.Finalize(context);
   return;
 }
-const parsed = TypeParser.ParseTypeParameterOnly(units, limit, this.Template) as TypeParameterShape;
+const parsed = TypeParserApi.ParseTypeParameterOnly(units, limit, this.Template) as TypeParameterShape;
 parameter.Pos = parsed.Pos;
 parameter.SignIn(parsed.SourceRange.Start);
 parameter.SourceRange.End = parsed.SourceRange.End;

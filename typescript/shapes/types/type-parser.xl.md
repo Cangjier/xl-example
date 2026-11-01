@@ -1,12 +1,13 @@
 # dependencies
 ```xl
-import { BlockToken } from "../../../core/syntax/block-token.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { InterpolationString } from "../../../core/syntax/basic-tokens/string/interpolation-string.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TypeAliasParsed } from "./type-parser-result.xl.md"
+import { TypeArgumentTail } from "./type-parser-result.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
@@ -20,7 +21,6 @@ import { AssertsKeywordShape } from "./type-token-shapes.xl.md"
 import { DotDotDotTokenShape } from "./type-token-shapes.xl.md"
 import { QuestionTokenShape } from "./type-token-shapes.xl.md"
 import { ReadonlyKeywordShape } from "./type-token-shapes.xl.md"
-import { UniqueKeywordShape } from "./type-token-shapes.xl.md"
 import { KeywordTypeShape } from "./keyword-type-shapes.xl.md"
 import { AnyKeywordShape } from "./keyword-type-shapes.xl.md"
 import { BigIntKeywordShape } from "./keyword-type-shapes.xl.md"
@@ -71,23 +71,13 @@ import { TypePredicateShape } from "./type-node-shapes.xl.md"
 import { TypeQueryShape } from "./type-node-shapes.xl.md"
 import { TypeReferenceShape } from "./type-node-shapes.xl.md"
 import { UnionTypeShape } from "./type-node-shapes.xl.md"
+import { TypeKeywordUtil } from "./type-keyword-util.xl.md"
+import { TypeRevisionUtil } from "./type-revision-util.xl.md"
+import { TypeParserApi } from "./type-parser-api.xl.md"
 ```
 
 # namespace cangjie
 
-# class TypeAliasParsed
-
-## field Name:Token | null = null
-
-## field TypeParameters:Array<Token> = []
-
-## field Type:Token | null = null
-
-# class TypeArgumentTail
-
-## field Arguments:Array<Token> = []
-
-## field End:int = -1
 
 # class TypeParser
 
@@ -105,204 +95,6 @@ import { UnionTypeShape } from "./type-node-shapes.xl.md"
 this.Units = units;
 this.Limit = limit;
 this.Template = template;
-```
-
-## static method ParseAlias:(units:Array<Token>, limit:int, template:Template)=>TypeAliasParsed
-
-```ts
-const parser = new TypeParser(units, limit, template);
-return parser.Alias();
-```
-
-## static method ParseCompleteType:(units:Array<Token>, limit:int, template:Template)=>Token
-
-```ts
-// 模板字面量类型的每个 `${…}` 是一个独立的 token 序列：在这里单独把它解析成一个类型节点。
-const parser = new TypeParser(units, limit, template);
-const type = parser.ParseType();
-parser.SkipTrivia();
-if (parser.Index < parser.Limit) {
-  throw parser.MakeError("模板插值里的类型之后仍有多余单元");
-}
-return type;
-```
-
-## static method ParseCompleteReturnType:(units:Array<Token>, limit:int, template:Template)=>Token
-
-```ts
-// 函数返回类型多一层 `asserts x is T` / `x is T` 的谓词文法。
-const parser = new TypeParser(units, limit, template);
-const type = parser.ParseTypeReturn();
-parser.SkipTrivia();
-if (parser.Index < parser.Limit) {
-  throw parser.MakeError("返回类型之后仍有多余单元");
-}
-return type;
-```
-
-## static method ParseParameterPrefix:(units:Array<Token>, from:int, limit:int, template:Template)=>Array<Token>
-
-```ts
-// 增量路径在 `=>` 到达时才把 `( … )` 一次解析成参数列表：只消费到 limit 为止。
-const parser = new TypeParser(units, limit, template);
-parser.Index = from;
-const items = parser.ParseParameterList();
-parser.SkipTrivia();
-if (parser.Index < parser.Limit) {
-  throw parser.MakeError("参数列表之后仍有多余单元");
-}
-return items;
-```
-
-## static method ParseTypeParameterList:(units:Array<Token>, limit:int, template:Template)=>Array<Token>
-
-```ts
-// 增量路径在条件类型成形（`extends` 关闭）时把头部 `< … >` 一次解析成 TypeParameter 列表：单元序列以 `<` 开头。
-const parser = new TypeParser(units, limit, template);
-const items = parser.ParseTypeParametersIfPresent();
-parser.SkipTrivia();
-if (parser.Index < parser.Limit) {
-  throw parser.MakeError("类型参数之后仍有多余单元");
-}
-return items;
-```
-
-## static method ParseTypeParameterOnly:(units:Array<Token>, limit:int, template:Template)=>Token
-
-```ts
-// 增量参数表在顶层 `,` / `>` 那一格只切一段：`T`、`T extends X`、`T = Y`。
-// 这一段不带 `<` / `>` / `,`，所以直接走单个参数的文法，不再把整张表重解析一遍。
-const parser = new TypeParser(units, limit, template);
-const parameter = parser.ParseTypeParameter();
-parser.SkipTrivia();
-if (parser.Index < parser.Limit) {
-  throw parser.MakeError("类型参数之后仍有多余单元");
-}
-return parameter;
-```
-
-## static method ParseTypeParameterTail:(units:Array<Token>, from:int, to:int, template:Template)=>Token
-
-```ts
-// 增量路径已经建好 InferType：实参表溶解时只把 `infer` 之后那一段（名字 / 约束）交给单参数文法。
-const parser = new TypeParser(units, to, template);
-parser.Index = from;
-const parameter = parser.ParseTypeParameter();
-parser.SkipTrivia();
-if (parser.Index !== parser.Limit) {
-  throw parser.MakeError("infer 之后仍有多余单元");
-}
-return parameter;
-```
-
-## static method ParseTypeArgumentTail:(units:Array<Token>, limit:int, template:Template)=>TypeArgumentTail
-
-```ts
-// 增量路径已经把名字建好了：这里只解析名字后面的 `< … >`，单元序列以 `<` 开头。
-// 返回值里的 End 是配平的 `>` 之后那个位置——TypeReference 的右边界就取它。
-const parser = new TypeParser(units, limit, template);
-const tail = parser.ParseArguments();
-parser.SkipTrivia();
-if (parser.Index < parser.Limit) {
-  throw parser.MakeError("类型实参之后仍有多余单元");
-}
-return tail;
-```
-
-## static method ParseEntityNamePrefix:(units:Array<Token>, from:int, to:int, template:Template)=>Token
-
-```ts
-// 增量路径只把「名字」这一段交给文法（`Array` / `NS.Array`），`<` 之后仍然走 ParseTypeArgumentTail。
-// 调用方先用名字段的形状判定过，这里再确认一次确实吃完了整段。
-const parser = new TypeParser(units, to, template);
-parser.Index = from;
-const name = parser.ParseEntityName();
-parser.SkipTrivia();
-if (parser.Index !== parser.Limit) {
-  throw parser.MakeError("名字之后仍有多余单元");
-}
-return name;
-```
-
-## static method KeywordTypeOf:(common:Common, pos:int)=>KeywordTypeShape | null
-
-```ts
-switch (common.TempToString()) {
-  case "string":
-    return TypeParser.KeywordRevision(StringKeywordShape.FromCommon(common, pos), common);
-  case "number":
-    return TypeParser.KeywordRevision(NumberKeywordShape.FromCommon(common, pos), common);
-  case "boolean":
-    return TypeParser.KeywordRevision(BooleanKeywordShape.FromCommon(common, pos), common);
-  case "any":
-    return TypeParser.KeywordRevision(AnyKeywordShape.FromCommon(common, pos), common);
-  case "unknown":
-    return TypeParser.KeywordRevision(UnknownKeywordShape.FromCommon(common, pos), common);
-  case "never":
-    return TypeParser.KeywordRevision(NeverKeywordShape.FromCommon(common, pos), common);
-  case "void":
-    return TypeParser.KeywordRevision(VoidKeywordShape.FromCommon(common, pos), common);
-  case "object":
-    return TypeParser.KeywordRevision(ObjectKeywordShape.FromCommon(common, pos), common);
-  case "symbol":
-    return TypeParser.KeywordRevision(SymbolKeywordShape.FromCommon(common, pos), common);
-  case "bigint":
-    return TypeParser.KeywordRevision(BigIntKeywordShape.FromCommon(common, pos), common);
-  case "undefined":
-    return TypeParser.KeywordRevision(UndefinedKeywordShape.FromCommon(common, pos), common);
-  default:
-    return null;
-}
-```
-
-## static method KeywordRevision:(shape:KeywordTypeShape, common:Common)=>KeywordTypeShape
-
-```ts
-// 关键字类型整段解析时没有 CreatedAt：记下它本该确定的那一格（收口格）作为修订位。
-shape.CreatedRevisionAt = common.SourceRange.End;
-return shape;
-```
-
-## static method IsBalanced:(units:Array<Token>, limit:int)=>bool
-
-```ts
-// 只用来判断「当前 `;` 是语句结束还是类型字面量里的成员分隔符」：括号配平就停在类型内部。
-let braces = 0;
-let parens = 0;
-let brackets = 0;
-let angles = 0;
-for (let at = 0; at < limit; at++) {
-  const unit = units[at];
-  if (!(unit instanceof Symbol)) {
-    continue;
-  }
-  const text = unit.TempToString();
-  if (text === "{") {
-    braces++;
-  } else if (text === "}") {
-    braces--;
-  } else if (text === "(") {
-    parens++;
-  } else if (text === ")") {
-    parens--;
-  } else if (text === "[") {
-    brackets++;
-  } else if (text === "]") {
-    brackets--;
-  } else if (text === "<") {
-    angles++;
-  } else if (text === ">") {
-    angles--;
-  } else if (text === ">>") {
-    angles -= 2;
-  } else if (text === ">>>") {
-    angles -= 3;
-  }
-  if (braces < 0 || parens < 0 || brackets < 0 || angles < 0) {
-    return false;
-  }
-}
-return braces === 0 && parens === 0 && brackets === 0 && angles === 0;
 ```
 
 ## public method Alias:()=>TypeAliasParsed
@@ -332,13 +124,13 @@ parsed.Type = type;
 return parsed;
 ```
 
-## private method MakeError:(message:string)=>Error
+## method MakeError:(message:string)=>Error
 
 ```ts
 return new Error("TypeParser: " + message + "（下标 " + this.Index + "）");
 ```
 
-## private method SkipTrivia:()=>void
+## method SkipTrivia:()=>void
 
 ```ts
 while (this.Index < this.Limit && this.Units[this.Index].IsTriviaToken) {
@@ -354,16 +146,6 @@ if (this.Index >= this.Limit) {
   return null;
 }
 return this.Units[this.Index];
-```
-
-## private method PeekText:()=>string
-
-```ts
-const unit = this.Peek();
-if (unit instanceof Common || unit instanceof Symbol) {
-  return unit.TempToString();
-}
-return "";
 ```
 
 ## private method PeekSymbol:()=>string
@@ -441,88 +223,13 @@ return unit;
 
 ```ts
 TypeShape.Finish(node, pos, start, end, children);
-TypeParser.MarkRevision(node, start, end);
+TypeRevisionUtil.MarkRevision(node, start, end);
 return node;
-```
-
-## static method MarkRevision:(node:TypeShape, start:int, end:int)=>void
-
-```ts
-// 整段解析时建出来的容器：用 CreatedRevisionAt 记下「如果增量创建，本该确定在哪一格」。
-// 只记 CreatedAt 还没写的节点；别的情况下 CreatedAt 就是实际创建位置。
-// 修订位必须严格小于 CreatedAt（IMPORTANCE），收口时由 NormalizeRevisions 清掉不满足的。
-if (node.CreatedAt >= 0) {
-  return;
-}
-let at = -1;
-if (node instanceof TypeLiteralShape || node instanceof MappedTypeShape) {
-  at = start + 1;
-} else if (node instanceof TupleTypeShape
-    || node instanceof ParenthesizedTypeShape
-    || node instanceof TemplateLiteralTypeShape) {
-  at = start;
-} else if (node instanceof TemplateHeadShape) {
-  at = start + 1;
-} else if (node instanceof TemplateLiteralTypeSpanShape) {
-  at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
-} else if (node instanceof TemplateTailShape) {
-  at = end;
-} else if (node instanceof IndexedAccessTypeShape) {
-  at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
-} else if (node instanceof ArrayTypeShape || node instanceof LiteralTypeShape) {
-  at = end;
-} else if (node instanceof FunctionTypeShape) {
-  // 函数类型整段解析时 CreatedAt 落在 EOF；`=>` 之后才是确定的返回类型，取最后一格做修订位。
-  at = end > 0 ? end - 1 : start;
-} else if (node instanceof TypeReferenceShape || node instanceof QualifiedNameShape) {
-  at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
-} else if (node instanceof PropertySignatureShape
-    || node instanceof MethodSignatureShape
-    || node instanceof ParameterShape
-    || node instanceof TypePredicateShape
-    || node instanceof NamedTupleMemberShape) {
-  let nameEnd = -1;
-  for (const item of node.Data) {
-    if (item instanceof IdentifierShape) {
-      nameEnd = item.SourceRange.End;
-      break;
-    }
-  }
-  at = nameEnd >= 0 ? nameEnd : start;
-} else if (node instanceof OptionalTypeShape || node instanceof RestTypeShape) {
-  at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
-} else if (node instanceof CallSignatureShape) {
-  at = start + 1;
-} else if (node instanceof ConstructSignatureShape || node instanceof IndexSignatureShape) {
-  at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
-} else if (node instanceof TypeParameterShape
-    || node instanceof UnionTypeShape
-    || node instanceof IntersectionTypeShape
-    || node instanceof ConstructorTypeShape) {
-  at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
-} else if (node instanceof TypeOperatorShape || node instanceof TypeQueryShape) {
-  const operand = node.Data.length > 0 ? node.Data[0] : null;
-  const document = node.SourceRange.Document;
-  if (operand !== null && document !== null) {
-    const keyword = document.GetRaw(start, operand.SourceRange.Start).trimEnd();
-    at = start + keyword.length;
-  }
-} else if (node instanceof ImportTypeShape) {
-  at = node.Data.length > 0 ? node.Data[0].SourceRange.Start : start;
-}
-if (at < 0) {
-  return;
-}
-node.CreatedRevisionAt = at;
 ```
 
 ## private method ExpectTypeAngleClose:()=>int
 
 ```ts
-// 类型宿主（TypeShape）现在会阻止词法层把 `>` 和后面一个字符合并（ICombineGuard），
-// 所以类型实参的右尖括号基本已经是单个 `>`。仍会合上的只剩非类型宿主：
-// 模板字面量插值里的类型单元挂在 String 下面（`\`${Array<Array<T>>}\``），那里没有守卫可用。
-// 这条拆分分支就是给那种单元序列留的。
 this.SkipTrivia();
 if (this.Index >= this.Limit) {
   throw this.MakeError("期望 >，但类型已结束");
@@ -545,7 +252,7 @@ if (text === ">>" || text === ">>>") {
 throw this.MakeError("期望符号 >");
 ```
 
-## private method ParseType:()=>Token
+## method ParseType:()=>Token
 
 ```ts
 const check = this.ParseUnion();
@@ -647,18 +354,14 @@ if (this.Index >= this.Limit) {
   throw this.MakeError("类型表达式意外结束");
 }
 const unit = this.Units[this.Index];
-// 名字收口那一格已经建好的类型引用（TypeAliasBodyPossibleShape）：复用它，只把后面的 `.` / `<`
-// 接在它身上。这样别名收口重解析时不会重建一棵新子树，`CreatedAt` 也留在名字那一格。
 if (unit instanceof TypeReferenceShape) {
   this.Index++;
   return this.GrowTypeReference(unit);
 }
-// 别名正文第一个关键字类型（TypeAliasBodyKeywordPossibleShape）已经建好：直接复用。
 if (unit instanceof KeywordTypeShape) {
   this.Index++;
   return unit;
 }
-// `infer` 收口那一格建好的 InferType：实参表溶解时把剩下的名字 / 约束填进去。
 if (unit instanceof InferTypeShape) {
   this.Index++;
   return this.GrowInferType(unit);
@@ -771,27 +474,27 @@ this.Index++;
 const text = common.TempToString();
 switch (text) {
   case "string":
-    return TypeParser.KeywordRevision(StringKeywordShape.FromCommon(common, pos), common);
+    return TypeKeywordUtil.KeywordRevision(StringKeywordShape.FromCommon(common, pos), common);
   case "number":
-    return TypeParser.KeywordRevision(NumberKeywordShape.FromCommon(common, pos), common);
+    return TypeKeywordUtil.KeywordRevision(NumberKeywordShape.FromCommon(common, pos), common);
   case "boolean":
-    return TypeParser.KeywordRevision(BooleanKeywordShape.FromCommon(common, pos), common);
+    return TypeKeywordUtil.KeywordRevision(BooleanKeywordShape.FromCommon(common, pos), common);
   case "any":
-    return TypeParser.KeywordRevision(AnyKeywordShape.FromCommon(common, pos), common);
+    return TypeKeywordUtil.KeywordRevision(AnyKeywordShape.FromCommon(common, pos), common);
   case "unknown":
-    return TypeParser.KeywordRevision(UnknownKeywordShape.FromCommon(common, pos), common);
+    return TypeKeywordUtil.KeywordRevision(UnknownKeywordShape.FromCommon(common, pos), common);
   case "never":
-    return TypeParser.KeywordRevision(NeverKeywordShape.FromCommon(common, pos), common);
+    return TypeKeywordUtil.KeywordRevision(NeverKeywordShape.FromCommon(common, pos), common);
   case "void":
-    return TypeParser.KeywordRevision(VoidKeywordShape.FromCommon(common, pos), common);
+    return TypeKeywordUtil.KeywordRevision(VoidKeywordShape.FromCommon(common, pos), common);
   case "object":
-    return TypeParser.KeywordRevision(ObjectKeywordShape.FromCommon(common, pos), common);
+    return TypeKeywordUtil.KeywordRevision(ObjectKeywordShape.FromCommon(common, pos), common);
   case "symbol":
-    return TypeParser.KeywordRevision(SymbolKeywordShape.FromCommon(common, pos), common);
+    return TypeKeywordUtil.KeywordRevision(SymbolKeywordShape.FromCommon(common, pos), common);
   case "bigint":
-    return TypeParser.KeywordRevision(BigIntKeywordShape.FromCommon(common, pos), common);
+    return TypeKeywordUtil.KeywordRevision(BigIntKeywordShape.FromCommon(common, pos), common);
   case "undefined":
-    return TypeParser.KeywordRevision(UndefinedKeywordShape.FromCommon(common, pos), common);
+    return TypeKeywordUtil.KeywordRevision(UndefinedKeywordShape.FromCommon(common, pos), common);
   default:
     throw this.MakeError("未知关键字类型 " + text);
 }
@@ -805,11 +508,11 @@ this.Index++;
 const text = common.TempToString();
 let child:Token;
 if (text === "null") {
-  child = TypeParser.KeywordRevision(NullKeywordShape.FromCommon(common, pos), common);
+  child = TypeKeywordUtil.KeywordRevision(NullKeywordShape.FromCommon(common, pos), common);
 } else if (text === "true") {
-  child = TypeParser.KeywordRevision(TrueKeywordShape.FromCommon(common, pos), common);
+  child = TypeKeywordUtil.KeywordRevision(TrueKeywordShape.FromCommon(common, pos), common);
 } else {
-  child = TypeParser.KeywordRevision(FalseKeywordShape.FromCommon(common, pos), common);
+  child = TypeKeywordUtil.KeywordRevision(FalseKeywordShape.FromCommon(common, pos), common);
 }
 const children:Array<Token> = [child];
 return this.Node(new LiteralTypeShape(this.Template), pos, common.SourceRange.Start, common.SourceRange.End, children);
@@ -858,13 +561,12 @@ for (const item of string.Data) {
 if (interpolations.length === 0) {
   throw this.MakeError("无插值的模板字面量类型暂不支持");
 }
-// TemplateHead 从反引号到第一个 `${` 的 `{`，Tail/Middle 从 `}` 到下一段开头。
 const headEnd = interpolations[0].SourceRange.Start + 1;
 const head = this.Node(new TemplateHeadShape(this.Template), pos, string.SourceRange.Start, headEnd, []);
 const children:Array<Token> = [head];
 for (let at = 0; at < interpolations.length; at++) {
   const interpolation = interpolations[at];
-  const inner = TypeParser.ParseCompleteType(interpolation.Data, interpolation.Data.length, this.Template);
+  const inner = TypeParserApi.ParseCompleteType(interpolation.Data, interpolation.Data.length, this.Template);
   const tailStart = interpolation.SourceRange.End - 1;
   let segmentEnd = string.SourceRange.End;
   let tail:Token;
@@ -881,7 +583,7 @@ for (let at = 0; at < interpolations.length; at++) {
 return this.Node(new TemplateLiteralTypeShape(this.Template), pos, string.SourceRange.Start, string.SourceRange.End, children);
 ```
 
-## private method ParseArguments:()=>TypeArgumentTail
+## method ParseArguments:()=>TypeArgumentTail
 
 ```ts
 const tail = new TypeArgumentTail();
@@ -921,8 +623,6 @@ return this.Node(new TypeReferenceShape(this.Template), TypeShape.PosOfNode(name
 ## private method GrowTypeReference:(reference:TypeReferenceShape)=>Token
 
 ```ts
-// 引用已经建好：`A.B` 把最左的名字换成 QualifiedName，`A<…>` 把实参挂在引用下面。
-// 两种情况都只改这颗形状本身，不新建 TypeReference。
 let node = reference;
 while (true) {
   this.SkipTrivia();
@@ -967,10 +667,8 @@ return node;
 ## private method GrowInferType:(infer:InferTypeShape)=>Token
 
 ```ts
-// `infer` 那一格已经建好的 InferType：这句实参剩下的名字 / 约束填进它的 TypeParameter。
-// 走到这里说明实参表要溶解了（配平的 `>` 或 `,`），这一段就是这颗 InferType 的全部内容。
 const end = this.NextArgumentEnd(this.Index);
-const parameter = TypeParser.ParseTypeParameterTail(this.Units, this.Index, end, this.Template);
+const parameter = TypeParserApi.ParseTypeParameterTail(this.Units, this.Index, end, this.Template);
 infer.Data = [];
 infer.Add(parameter);
 infer.SourceRange.End = parameter.SourceRange.End;
@@ -982,7 +680,6 @@ return infer;
 ## private method NextArgumentEnd:(from:int)=>int
 
 ```ts
-// 实参的边界是深度 0 上的 `,` 或 `>`：`infer U extends Map<string, number>` 里的 `<>` 不算边界。
 let paren = 0;
 let square = 0;
 let brace = 0;
@@ -1019,7 +716,7 @@ for (let at = from; at < this.Limit; at++) {
 return this.Limit;
 ```
 
-## private method ParseEntityName:()=>Token
+## method ParseEntityName:()=>Token
 
 ```ts
 this.SkipTrivia();
@@ -1226,12 +923,11 @@ const children:Array<Token> = [inner];
 return this.Node(new ParenthesizedTypeShape(this.Template), this.PosOf(openIndex), this.Units[openIndex].SourceRange.Start, close.SourceRange.End, children);
 ```
 
-## private method ParseTypeParametersIfPresent:()=>Array<Token>
+## method ParseTypeParametersIfPresent:()=>Array<Token>
 
 ```ts
 this.SkipTrivia();
 if (this.PeekSymbol() !== "<") {
-  // 增量路径已经在 `<` 处把头部收成 TypeParameter：直接沿用，不再从原始单元重解析。
   const built:Array<Token> = [];
   while (true) {
     this.SkipTrivia();
@@ -1264,7 +960,7 @@ this.ExpectTypeAngleClose();
 return items;
 ```
 
-## private method ParseTypeParameter:()=>Token
+## method ParseTypeParameter:()=>Token
 
 ```ts
 this.SkipTrivia();
@@ -1298,7 +994,7 @@ if (this.PeekSymbol() === "=") {
 return this.Node(new TypeParameterShape(this.Template), name.Pos, name.SourceRange.Start, end, children);
 ```
 
-## private method ParseParameterList:()=>Array<Token>
+## method ParseParameterList:()=>Array<Token>
 
 ```ts
 this.ExpectSymbol("(");
@@ -1359,7 +1055,7 @@ const last = children[children.length - 1];
 return this.Node(new ParameterShape(this.Template), this.PosOf(startIndex), this.Units[startIndex].SourceRange.Start, last.SourceRange.End, children);
 ```
 
-## private method ParseTypeReturn:()=>Token
+## method ParseTypeReturn:()=>Token
 
 ```ts
 this.SkipTrivia();
@@ -1588,7 +1284,6 @@ if (this.PeekSymbol() === "?") {
     minus.CreatedRevisionAt = unit.SourceRange.End;
     children.push(minus);
   }
-  // `+?` / `-?`：`?` 不是子节点，只跟在这个符号后面。
   this.SkipTrivia();
   if (this.PeekSymbol() === "?") {
     this.Index++;
@@ -1603,8 +1298,6 @@ return this.Node(new MappedTypeShape(this.Template), this.PosOf(openIndex), this
 ## private method IsReadonlyModifier:()=>bool
 
 ```ts
-// `readonly` 既可能是成员修饰符，也可能自己就是属性名（`{ readonly: string }`）。
-// 只有紧跟着 `:` / `?` / `(` 时才是名字。
 const next = this.NextCodeIndex(this.Index + 1);
 if (next < 0) {
   return true;

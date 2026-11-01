@@ -2,7 +2,6 @@
 ```xl
 import { TypeShape } from "./type-shape.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
-import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 ```
 
 # namespace cangjie

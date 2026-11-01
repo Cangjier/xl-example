@@ -17,16 +17,18 @@ import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { TypeAliasEndPossibleShape } from "./type-alias-end-possible-shape.xl.md"
 import { TypeFunctionArrowPossibleShape } from "./type-function-incremental.xl.md"
 import { TypeAliasChainPossibleShape } from "./type-conditional-chain.xl.md"
-import { TypeConditionalUtil } from "./type-conditional-chain.xl.md"
 import { TypeReferenceShape } from "./type-node-shapes.xl.md"
 import { ArrayTypeShape } from "./type-node-shapes.xl.md"
 import { UnionTypeShape } from "./type-node-shapes.xl.md"
 import { IntersectionTypeShape } from "./type-node-shapes.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
-import { TypeParser } from "./type-parser.xl.md"
 import { TypeParameterListShape } from "./type-parameter-list-shape.xl.md"
 import { TypeParameterListOpenPossibleShape } from "./type-parameter-list-shape.xl.md"
+import { TypeConditionalScan } from "./type-conditional-scan-util.xl.md"
+import { TypeBodyUtil } from "./type-body-util.xl.md"
+import { TypeKeywordUtil } from "./type-keyword-util.xl.md"
 ```
+
 
 # namespace cangjie
 
@@ -120,19 +122,19 @@ if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
   return ShapeStates.Reject;
 }
 // 正文第一个代码单元是刚收口的名字：这一刻就建类型引用，不等 `.` / `<` / `[` / `extends` 来证明。
-if (TypeConditionalUtil.IsBodyName(units, tokenIndex, cache)) {
+if (TypeBodyUtil.IsBodyName(units, tokenIndex, cache)) {
   return ShapeStates.Accept;
 }
 // 正文还没开始就一直等；已经开始了（第一个单元不是名字，或已经长成形状）就让位给条件类型 / 函数类型。
 // 让位以后这个候选就退出 Candidate，直到下一次 build 的 Reset 才回来：正文以 `{` / `[` / `(` 开头时
 // 只在第一个代码单元上算一遍，不会每格重扫（trivia 关闭不触发 compute）。
-return TypeConditionalUtil.HasBodyCode(units, tokenIndex, cache) ? ShapeStates.Reject : ShapeStates.Uncertain;
+return TypeBodyUtil.HasBodyCode(units, tokenIndex, cache) ? ShapeStates.Reject : ShapeStates.Uncertain;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-return TypeConditionalUtil.IsBodyName(units, tokenIndex, cache);
+return TypeBodyUtil.IsBodyName(units, tokenIndex, cache);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -173,7 +175,7 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
   return ShapeStates.Reject;
 }
-const bodyIndex = TypeConditionalUtil.BodyStart(units, tokenIndex, cache);
+const bodyIndex = TypeBodyUtil.BodyStart(units, tokenIndex, cache);
 if (bodyIndex < 0 || bodyIndex >= units.length) {
   // 正文还没开始：先活着，等 `=` 之后的那一格（Reject 会把它从候选里摘掉，直到下一次 build）。
   return ShapeStates.Uncertain;
@@ -185,7 +187,7 @@ if (!(unit instanceof Common)) {
 if (!unit.Closed) {
   return ShapeStates.Uncertain;
 }
-if (!TypeConditionalUtil.IsKeywordTypeText(unit.TempToString())) {
+if (!TypeBodyUtil.IsKeywordTypeText(unit.TempToString())) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
@@ -197,14 +199,14 @@ return ShapeStates.Accept;
 if (tokenIndex !== units.length - 1) {
   return false;
 }
-const bodyIndex = TypeConditionalUtil.BodyStart(units, tokenIndex, cache);
+const bodyIndex = TypeBodyUtil.BodyStart(units, tokenIndex, cache);
 if (bodyIndex < 0 || bodyIndex >= units.length) {
   return false;
 }
 const unit = units[bodyIndex];
 return unit instanceof Common
   && unit.Closed
-  && TypeConditionalUtil.IsKeywordTypeText(unit.TempToString());
+  && TypeBodyUtil.IsKeywordTypeText(unit.TempToString());
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -214,8 +216,8 @@ return unit instanceof Common
 // 别名收口时 ParsePrimary 认这颗已建好的关键字类型，不会在 EOF 重建。
 const alias = host as TypeAliasDeclarationShape;
 const units = alias.Data;
-const equals = TypeConditionalUtil.TopLevelEquals(units, tokenIndex);
-if (equals < 0 || !TypeConditionalUtil.Balanced(units, 0, equals)) {
+const equals = TypeConditionalScan.TopLevelEquals(units, tokenIndex);
+if (equals < 0 || !TypeConditionalScan.Balanced(units, 0, equals)) {
   throw new Error("TypeAliasBodyKeywordPossibleShape: 别名正文没有开始");
 }
 const bodyIndex = StatementUtil.NextCode(units, equals + 1);
@@ -223,7 +225,7 @@ if (bodyIndex < 0 || bodyIndex >= units.length) {
   throw new Error("TypeAliasBodyKeywordPossibleShape: 找不到正文第一个代码单元");
 }
 const unit = units[bodyIndex] as Common;
-const atom = TypeParser.KeywordTypeOf(unit, ItemUtil.PositionOf(units, bodyIndex));
+const atom = TypeKeywordUtil.KeywordTypeOf(unit, ItemUtil.PositionOf(units, bodyIndex));
 if (atom === null) {
   throw new Error("TypeAliasBodyKeywordPossibleShape: 不支持的关键字类型 " + unit.TempToString());
 }
@@ -249,14 +251,14 @@ if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
   return ShapeStates.Reject;
 }
 // 正文还没开始：和关键字候选一样先活着（Reject 会被摘掉，直到下一次 build）。
-if (TypeConditionalUtil.BodyStart(units, tokenIndex, cache) < 0) {
+if (TypeBodyUtil.BodyStart(units, tokenIndex, cache) < 0) {
   return ShapeStates.Uncertain;
 }
-const bodyIndex = TypeConditionalUtil.BodyStart(units, tokenIndex, cache);
+const bodyIndex = TypeBodyUtil.BodyStart(units, tokenIndex, cache);
 if (bodyIndex >= units.length || !(units[bodyIndex] instanceof TypeShape)) {
   return ShapeStates.Reject;
 }
-if (TypeConditionalUtil.IsPostfixArrayClose(units, tokenIndex, cache)) {
+if (TypeBodyUtil.IsPostfixArrayClose(units, tokenIndex, cache)) {
   return ShapeStates.Accept;
 }
 // 只有正文后面刚跟了一个 `[` 时才继续活着（等 `]` 收口）；其它格 Reject 让位给
@@ -274,7 +276,7 @@ return ShapeStates.Reject;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-return TypeConditionalUtil.IsPostfixArrayClose(units, tokenIndex, cache);
+return TypeBodyUtil.IsPostfixArrayClose(units, tokenIndex, cache);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -288,8 +290,8 @@ if (closeIndex < 0) {
   throw new Error("TypeAliasArraySuffixPossibleShape: 找不到 `]`");
 }
 const close = units[closeIndex] as Symbol;
-const equals = TypeConditionalUtil.TopLevelEquals(units, tokenIndex);
-if (equals < 0 || !TypeConditionalUtil.Balanced(units, 0, equals)) {
+const equals = TypeConditionalScan.TopLevelEquals(units, tokenIndex);
+if (equals < 0 || !TypeConditionalScan.Balanced(units, 0, equals)) {
   throw new Error("TypeAliasArraySuffixPossibleShape: 别名正文没有开始");
 }
 const bodyIndex = StatementUtil.NextCode(units, equals + 1);
@@ -324,10 +326,10 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
   return ShapeStates.Reject;
 }
-if (TypeConditionalUtil.BodyStart(units, tokenIndex, cache) < 0) {
+if (TypeBodyUtil.BodyStart(units, tokenIndex, cache) < 0) {
   return ShapeStates.Uncertain;
 }
-if (TypeConditionalUtil.IsOperatorMember(units, tokenIndex, cache)) {
+if (TypeBodyUtil.IsOperatorMember(units, tokenIndex, cache)) {
   return ShapeStates.Accept;
 }
 // 正文后面刚跟 `|` / `&`、或成员还在输入：先活着，等成员收口那一格再 Accept。
@@ -347,7 +349,7 @@ return ShapeStates.Reject;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-return TypeConditionalUtil.IsOperatorMember(units, tokenIndex, cache);
+return TypeBodyUtil.IsOperatorMember(units, tokenIndex, cache);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -356,8 +358,8 @@ return TypeConditionalUtil.IsOperatorMember(units, tokenIndex, cache);
 // `string | number` / `A1 & A2`：成员收口那一格就地建出成员，再折成 Union/Intersection。
 const alias = host as TypeAliasDeclarationShape;
 const units = alias.Data;
-const equals = TypeConditionalUtil.TopLevelEquals(units, tokenIndex);
-if (equals < 0 || !TypeConditionalUtil.Balanced(units, 0, equals)) {
+const equals = TypeConditionalScan.TopLevelEquals(units, tokenIndex);
+if (equals < 0 || !TypeConditionalScan.Balanced(units, 0, equals)) {
   throw new Error("TypeAliasOperatorMemberPossibleShape: 别名正文没有开始");
 }
 const bodyIndex = StatementUtil.NextCode(units, equals + 1);
@@ -370,7 +372,7 @@ const member = units[memberIndex] as Common;
 const operator = units[opIndex] as Symbol;
 const left = units[bodyIndex];
 const memberPos = ItemUtil.PositionOf(units, memberIndex);
-const keyword = TypeParser.KeywordTypeOf(member, memberPos);
+const keyword = TypeKeywordUtil.KeywordTypeOf(member, memberPos);
 let atom:Token;
 if (keyword !== null) {
   atom = keyword;

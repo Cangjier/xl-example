@@ -24,10 +24,13 @@ import { TypePredicateShape } from "./type-node-shapes.xl.md"
 import { TypeReferenceShape } from "./type-node-shapes.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { TypeAliasEndPossibleShape } from "./type-alias-end-possible-shape.xl.md"
-import { TypeConditionalUtil } from "./type-conditional-chain.xl.md"
 import { TypeParameterListShape } from "./type-parameter-list-shape.xl.md"
-import { TypeParser } from "./type-parser.xl.md"
+import { TypeBodyUtil } from "./type-body-util.xl.md"
+import { TypeBalanceUtil } from "./type-balance-util.xl.md"
+import { TypeKeywordUtil } from "./type-keyword-util.xl.md"
+import { TypeParserApi } from "./type-parser-api.xl.md"
 ```
+
 
 # namespace cangjie
 
@@ -38,7 +41,6 @@ import { TypeParser } from "./type-parser.xl.md"
 ## method Finish:(context:SyntaxContext)=>Token
 
 ```ts
-// 返回类型要么是已经逐字长出来的类型谓词，要么还是原始单元：到这里才用同一套类型文法补完。
 let type:Token;
 if (this.Predicate !== null) {
   for (const item of this.Data) {
@@ -52,7 +54,7 @@ if (this.Predicate !== null) {
   }
   type = this.Predicate;
 } else {
-  type = TypeParser.ParseCompleteReturnType(this.Data, this.Data.length, this.Template);
+  type = TypeParserApi.ParseCompleteReturnType(this.Data, this.Data.length, this.Template);
 }
 this.Data = [type];
 type.Parent = this;
@@ -66,7 +68,6 @@ return type;
 const type = this.Finish(context);
 const parent = this.Parent;
 if (parent !== null) {
-  // 这个上下文只是“返回类型的脚手架”：关闭时用真正的类型节点替换自己。
   const at = parent.Data.indexOf(this);
   if (at >= 0) {
     parent.Data.splice(at, 1, type);
@@ -82,7 +83,6 @@ return CloseStates.Nothing;
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
-// 光标在 `=>` 之前必须一直活着：候选一旦 Reject，要到下一次 build 的 Reset 才会回来。
 if (!(host instanceof TypeAliasDeclarationShape)) {
   return ShapeStates.Reject;
 }
@@ -91,34 +91,27 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
-// 头部 `<` 只能是类型参数表：让位给 TypeParameterListOpenPossibleShape（它只在这一格 Accept）。
 if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
   return ShapeStates.Reject;
 }
-// 正文第一个名字收口那一格让位给 TypeAliasBodyPossibleShape（它只在这一格 Accept）。
-if (TypeConditionalUtil.IsBodyName(units, tokenIndex, cache)) {
+if (TypeBodyUtil.IsBodyName(units, tokenIndex, cache)) {
   return ShapeStates.Reject;
 }
-// 正文第一个关键字类型同理，让位给 TypeAliasBodyKeywordPossibleShape。
-if (TypeConditionalUtil.IsBodyKeyword(units, tokenIndex, cache)) {
+if (TypeBodyUtil.IsBodyKeyword(units, tokenIndex, cache)) {
   return ShapeStates.Reject;
 }
-// 数组后缀 `[]` 收口那一格让位给 TypeAliasArraySuffixPossibleShape。
-if (TypeConditionalUtil.IsPostfixArrayClose(units, tokenIndex, cache)) {
+if (TypeBodyUtil.IsPostfixArrayClose(units, tokenIndex, cache)) {
   return ShapeStates.Reject;
 }
-// `|` / `&` 的成员收口那一格让位给 TypeAliasOperatorMemberPossibleShape。
-if (TypeConditionalUtil.IsOperatorMember(units, tokenIndex, cache)) {
+if (TypeBodyUtil.IsOperatorMember(units, tokenIndex, cache)) {
   return ShapeStates.Reject;
 }
-// 这两类是语句收口的 token，让给终结候选。
 if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
-  return TypeParser.IsBalanced(units, tokenIndex) ? ShapeStates.Reject : ShapeStates.Uncertain;
+  return TypeBalanceUtil.IsBalanced(units, tokenIndex) ? ShapeStates.Reject : ShapeStates.Uncertain;
 }
 if (unit instanceof Common && unit.Closed && TypeAliasEndPossibleShape.IsStatementStart(unit)) {
-  return TypeParser.IsBalanced(units, tokenIndex) ? ShapeStates.Reject : ShapeStates.Uncertain;
+  return TypeBalanceUtil.IsBalanced(units, tokenIndex) ? ShapeStates.Reject : ShapeStates.Uncertain;
 }
-// `extends` 之后只可能是条件类型：让位给条件类型候选（它只在这一格 Accept）。
 if (unit instanceof Common && unit.Closed && unit.Is("extends")) {
   return ShapeStates.Reject;
 }
@@ -145,7 +138,6 @@ const equals = TypeFunctionArrowPossibleShape.FindEquals(units, tokenIndex);
 if (equals < 0) {
   return false;
 }
-// 只接「名字后面直接是 =」的无类型参数别名：`type A<T> = (…) => …` 的类型参数仍走 close 兜底。
 for (let at = 1; at < equals; at++) {
   if (!units[at].IsTriviaToken) {
     return false;
@@ -175,14 +167,13 @@ const units = alias.Data;
 const arrow = units[tokenIndex] as Symbol;
 const equals = TypeFunctionArrowPossibleShape.FindEquals(units, tokenIndex);
 const first = TypeFunctionArrowPossibleShape.NextCode(units, equals + 1, tokenIndex);
-const parameters = TypeParser.ParseParameterPrefix(units, first, tokenIndex, alias.Template);
+const parameters = TypeParserApi.ParseParameterPrefix(units, first, tokenIndex, alias.Template);
 const functionType = new FunctionTypeShape(alias.Template);
 functionType.Pos = ItemUtil.PositionOf(units, first);
 functionType.SignIn(units[first].SourceRange.Start);
 for (const parameter of parameters) {
   functionType.Add(parameter);
 }
-// 返回类型的脚手架先挂上：`asserts` / `is` 一出现就能往里长，不必等 EOF。
 const returnType = new ReturnTypeContextShape(alias.Template);
 returnType.Pos = ItemUtil.PositionOf(units, tokenIndex);
 returnType.SignIn(arrow.SourceRange.End);
@@ -239,7 +230,7 @@ const unit = units[tokenIndex];
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(";")) {
   return ShapeStates.Reject;
 }
-return TypeParser.IsBalanced(units, tokenIndex) ? ShapeStates.Accept : ShapeStates.Reject;
+return TypeBalanceUtil.IsBalanced(units, tokenIndex) ? ShapeStates.Accept : ShapeStates.Reject;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
@@ -323,7 +314,6 @@ predicate.SourceRange.End = asserts.SourceRange.End;
 returnType.Data.splice(tokenIndex, 1, predicate);
 predicate.Parent = returnType;
 returnType.Predicate = predicate;
-// 谓词自己成为 mounted unit：后面的空白、名字、`is`、类型都先流进它。
 predicate.CatalogGuide = new CatalogGuide([new TypePredicateNamePossibleShape()], null);
 returnType.MountedUnit = predicate;
 return this.StampCreated(predicate, context);
@@ -334,7 +324,6 @@ return this.StampCreated(predicate, context);
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
-// `x is T`：`x` 关闭时还看不出来（也可能是 TypeReference），`is` 关闭时才能定案。
 if (!(host instanceof ReturnTypeContextShape) || host.Predicate !== null) {
   return ShapeStates.Reject;
 }
@@ -350,7 +339,6 @@ if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
   return ShapeStates.Reject;
 }
 if (unit instanceof Common && unit.Closed && unit.TempToString() === "asserts") {
-  // 第一个代码单元是 asserts：交给 TypePredicateStartPossibleShape。
   return ShapeStates.Reject;
 }
 let prior = -1;
@@ -428,7 +416,6 @@ const predicate = new TypePredicateShape(returnType.Template);
 predicate.Pos = pos;
 predicate.SignIn(nameUnit.SourceRange.Start);
 predicate.Add(IdentifierShape.FromCommon(nameUnit, pos));
-// `is` 已经被真实消费：记下它后面的起点当类型 pos 锚点，然后连同 trivia 一起丢弃（不进 Data）。
 const tail = units.splice(nameIndex, tokenIndex - nameIndex + 1);
 const isUnit = tail[tail.length - 1];
 predicate.TypeStart = isUnit.SourceRange.End;
@@ -513,7 +500,6 @@ return true;
 ```ts
 const predicate = host as TypePredicateShape;
 const unit = predicate.Data[tokenIndex];
-// `is` 已经被真实消费：记录它后面的起点（下一个类型的 pos 用它），再立刻从 Data 摘掉。
 predicate.TypeStart = unit.SourceRange.End;
 predicate.Data.splice(tokenIndex, 1);
 predicate.CatalogGuide = new CatalogGuide([new TypePredicateTypePossibleShape()], null);
@@ -572,7 +558,7 @@ if (unit instanceof String) {
   atom = literalType;
 } else {
   const common = unit as Common;
-  const keyword = TypeParser.KeywordTypeOf(common, pos);
+  const keyword = TypeKeywordUtil.KeywordTypeOf(common, pos);
   if (keyword !== null) {
     atom = keyword;
   } else if (common.IsNumber()) {
@@ -596,8 +582,6 @@ if (unit instanceof String) {
   }
 }
 predicate.Data.splice(tokenIndex, 1);
-// 收口后 Data 等价于 AST children：把 tokenIndex 之前的 trivia / basic token 丢掉
-// （只回看 tokenIndex 之前，不遍历后面的单元）。
 for (let at = tokenIndex - 1; at >= 0; at--) {
   const item = predicate.Data[at];
   if (item.IsTriviaToken || item.IsBasicToken) {

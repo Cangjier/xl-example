@@ -11,7 +11,8 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
-import { TypeParser } from "./type-parser.xl.md"
+import { TypeBalanceUtil } from "./type-balance-util.xl.md"
+import { TypeParserApi } from "./type-parser-api.xl.md"
 ```
 
 # namespace cangjie
@@ -28,11 +29,11 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 const unit = units[tokenIndex];
 if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
   // `;` 也可能落在类型字面量的成员之间：括号没配平就一直等，别把它当语句结束。
-  return TypeParser.IsBalanced(units, tokenIndex) ? ShapeStates.Accept : ShapeStates.Reject;
+  return TypeBalanceUtil.IsBalanced(units, tokenIndex) ? ShapeStates.Accept : ShapeStates.Reject;
 }
 // 无分号换行：下一个代码单元是能起新语句的关键字，且前缀括号配平，就收口并把该单元交回 SourceFile。
 if (unit instanceof Common && unit.Closed && TypeAliasEndPossibleShape.IsStatementStart(unit)) {
-  if (!TypeParser.IsBalanced(units, tokenIndex)) {
+  if (!TypeBalanceUtil.IsBalanced(units, tokenIndex)) {
     return ShapeStates.Reject;
   }
   const previous = ItemUtil.PreviousCode(units, tokenIndex - 1);
@@ -52,10 +53,10 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 }
 const unit = units[tokenIndex];
 if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
-  return TypeParser.IsBalanced(units, tokenIndex);
+  return TypeBalanceUtil.IsBalanced(units, tokenIndex);
 }
 if (unit instanceof Common && unit.Closed && TypeAliasEndPossibleShape.IsStatementStart(unit)) {
-  if (!TypeParser.IsBalanced(units, tokenIndex)) {
+  if (!TypeBalanceUtil.IsBalanced(units, tokenIndex)) {
     return false;
   }
   const previous = ItemUtil.PreviousCode(units, tokenIndex - 1);
@@ -81,7 +82,7 @@ if (unit instanceof Symbol && unit.Is(";")) {
   // 当前 token 连同它前面的 trivia 一起交回 SourceFile：下一条语句的 pos 要含这段前导 trivia。
   tail = units.splice(previous >= 0 ? previous + 1 : tokenIndex);
 }
-const parsed = TypeParser.ParseAlias(units, units.length, alias.Template);
+const parsed = TypeParserApi.ParseAlias(units, units.length, alias.Template);
 TypeAliasDeclarationShape.Apply(alias, parsed, end);
 alias.Closed = true;
 const parent = alias.Parent;
