@@ -30,8 +30,6 @@ for (const item of this.Data) {
     item.TryToClose(context);
   }
 }
-// `}` 已经给过右边界（BlockEndPossibleShape 设好 End 再关）；EOF 没有 `}`，
-// 右边界取最后一个代码子单元的 End，不把尾随 trivia 算进来。
 if (!this.EndedByBrace) {
   for (let at = this.Data.length - 1; at >= 0; at--) {
     const unit = this.Data[at];

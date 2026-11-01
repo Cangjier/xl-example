@@ -58,7 +58,6 @@ const keyword = units[tokenIndex] as Common;
 const pos = ItemUtil.PositionOf(units, tokenIndex);
 const statement = new DoStatementShape(host.Template);
 statement.Kind = "do";
-// `do` 的 body 先来：即使 Condition 还是 null，ControlBodyPossibleShape 也应当认领 body。
 statement.BodyFirst = true;
 statement.Pos = pos;
 statement.SignIn(keyword.SourceRange.Start);

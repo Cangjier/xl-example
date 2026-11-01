@@ -47,7 +47,6 @@ const units = host.Data;
 const semicolon = units[tokenIndex] as Symbol;
 const previousIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
 const declarationEnd = previousIndex >= 0 ? units[previousIndex].SourceRange.End : semicolon.SourceRange.Start;
-// VariableDeclaration 不含 `;`；VariableStatement 含 `;`（与 TS 一致）。
 host.SourceRange.End = declarationEnd;
 host.TryToClose(context);
 const list = host.Parent;

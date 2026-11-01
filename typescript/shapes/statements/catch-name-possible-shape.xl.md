@@ -19,7 +19,6 @@ import { CatchCloseParenPossibleShape } from "./catch-close-paren-possible-shape
 
 # class CatchNamePossibleShape extends PossibleShape
 
-`catch (e)` 里的 `e`：落成 VariableDeclaration + Identifier（catch 的参数声明没有 `let` 关键字）。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

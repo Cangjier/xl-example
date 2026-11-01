@@ -20,7 +20,6 @@ import { PostfixUnaryExpressionShape } from "./postfix-unary-expression-shape.xl
 
 # class PostfixPossibleShape extends PossibleShape
 
-后缀 `++` / `--`：把上一个已封口的操作数包成 PostfixUnaryExpression。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

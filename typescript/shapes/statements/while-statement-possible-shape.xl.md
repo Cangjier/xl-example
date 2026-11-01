@@ -18,8 +18,6 @@ import { WhileStatementShape } from "./while-statement-shape.xl.md"
 
 # class WhileStatementPossibleShape extends PossibleShape
 
-`while` 关键字收口的那一刻就把整条语句建出来，条件括号交给 ConditionCreatePossibleShape，
-与 `if` 走同一条条件通路。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

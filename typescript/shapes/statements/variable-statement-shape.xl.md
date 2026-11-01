@@ -19,7 +19,6 @@ for (const item of this.Data) {
     item.TryToClose(context);
   }
 }
-// 有 `;` 时范围已由终止候选定在分号末尾；没有 `;` 时到最后一个代码子单元为止。
 if (!this.EndsWithSemicolon) {
   for (let at = this.Data.length - 1; at >= 0; at--) {
     const unit = this.Data[at];

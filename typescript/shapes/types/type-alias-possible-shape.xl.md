@@ -52,7 +52,6 @@ return ShapeStates.Uncertain;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-// 语句头是 `type`，且名称标识符刚刚关闭、是这一格的最后一个单元。
 const start = StatementUtil.StartIndex(units);
 if (start >= units.length) {
   return false;
@@ -117,17 +116,12 @@ if (!(host instanceof TypeAliasDeclarationShape)) {
   return ShapeStates.Reject;
 }
 const units = host.Data;
-// 头部 `<` 只能是类型参数表：让位给 TypeParameterListOpenPossibleShape（它只在这一格 Accept）。
 if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
   return ShapeStates.Reject;
 }
-// 正文第一个代码单元是刚收口的名字：这一刻就建类型引用，不等 `.` / `<` / `[` / `extends` 来证明。
 if (TypeBodyUtil.IsBodyName(units, tokenIndex, cache)) {
   return ShapeStates.Accept;
 }
-// 正文还没开始就一直等；已经开始了（第一个单元不是名字，或已经长成形状）就让位给条件类型 / 函数类型。
-// 让位以后这个候选就退出 Candidate，直到下一次 build 的 Reset 才回来：正文以 `{` / `[` / `(` 开头时
-// 只在第一个代码单元上算一遍，不会每格重扫（trivia 关闭不触发 compute）。
 return TypeBodyUtil.HasBodyCode(units, tokenIndex, cache) ? ShapeStates.Reject : ShapeStates.Uncertain;
 ```
 
@@ -140,9 +134,6 @@ return TypeBodyUtil.IsBodyName(units, tokenIndex, cache);
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-// 名字这一格就把 TypeReference 建出来（`CreatedAt` = 名字收口格）。后面的 `.` / `<` 在它身上继续长，
-// `extends` 由 TypeAliasChainPossibleShape 收成 ConditionalType 并复用这颗引用；
-// 其余写法在别名收口时走 ParseAlias，ParsePrimary 认这颗已建好的引用，不会重建。
 const alias = host as TypeAliasDeclarationShape;
 const units = alias.Data;
 const unit = units[tokenIndex] as Common;
@@ -171,13 +162,11 @@ const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Reject;
 }
-// 头部 `<` 只能是类型参数表：让位给 TypeParameterListOpenPossibleShape（它只在这一格 Accept）。
 if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
   return ShapeStates.Reject;
 }
 const bodyIndex = TypeBodyUtil.BodyStart(units, tokenIndex, cache);
 if (bodyIndex < 0 || bodyIndex >= units.length) {
-  // 正文还没开始：先活着，等 `=` 之后的那一格（Reject 会把它从候选里摘掉，直到下一次 build）。
   return ShapeStates.Uncertain;
 }
 const unit = units[bodyIndex];
@@ -212,8 +201,6 @@ return unit instanceof Common
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-// `string` / `number` 这类关键字类型在它收口后的那一格就建出来，CreatedAt = 收口格；
-// 别名收口时 ParsePrimary 认这颗已建好的关键字类型，不会在 EOF 重建。
 const alias = host as TypeAliasDeclarationShape;
 const units = alias.Data;
 const equals = TypeConditionalScan.TopLevelEquals(units, tokenIndex);
@@ -246,11 +233,9 @@ const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Reject;
 }
-// 头部 `<` 只能是类型参数表：让位给 TypeParameterListOpenPossibleShape（它只在这一格 Accept）。
 if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
   return ShapeStates.Reject;
 }
-// 正文还没开始：和关键字候选一样先活着（Reject 会被摘掉，直到下一次 build）。
 if (TypeBodyUtil.BodyStart(units, tokenIndex, cache) < 0) {
   return ShapeStates.Uncertain;
 }
@@ -261,8 +246,6 @@ if (bodyIndex >= units.length || !(units[bodyIndex] instanceof TypeShape)) {
 if (TypeBodyUtil.IsPostfixArrayClose(units, tokenIndex, cache)) {
   return ShapeStates.Accept;
 }
-// 只有正文后面刚跟了一个 `[` 时才继续活着（等 `]` 收口）；其它格 Reject 让位给
-// 条件类型 / 函数类型等真正的正文候选，否则它会一直占着候选位置、挡掉它们的 build。
 const lastCode = ItemUtil.PreviousCode(units, tokenIndex);
 if (lastCode >= 0) {
   const last = units[lastCode];
@@ -282,7 +265,6 @@ return TypeBodyUtil.IsPostfixArrayClose(units, tokenIndex, cache);
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-// `string[]` 的 `]` 收口那一格：把正文那颗类型就地包成 ArrayType，CreatedAt = `]` 收口格。
 const alias = host as TypeAliasDeclarationShape;
 const units = alias.Data;
 const closeIndex = ItemUtil.PreviousCode(units, tokenIndex);
@@ -332,7 +314,6 @@ if (TypeBodyUtil.BodyStart(units, tokenIndex, cache) < 0) {
 if (TypeBodyUtil.IsOperatorMember(units, tokenIndex, cache)) {
   return ShapeStates.Accept;
 }
-// 正文后面刚跟 `|` / `&`、或成员还在输入：先活着，等成员收口那一格再 Accept。
 const lastCode = ItemUtil.PreviousCode(units, tokenIndex);
 if (lastCode >= 0) {
   const last = units[lastCode];
@@ -355,7 +336,6 @@ return TypeBodyUtil.IsOperatorMember(units, tokenIndex, cache);
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-// `string | number` / `A1 & A2`：成员收口那一格就地建出成员，再折成 Union/Intersection。
 const alias = host as TypeAliasDeclarationShape;
 const units = alias.Data;
 const equals = TypeConditionalScan.TopLevelEquals(units, tokenIndex);
@@ -389,13 +369,11 @@ if (keyword !== null) {
 const sameKind = (operator.Is("|") && left instanceof UnionTypeShape)
   || (operator.Is("&") && left instanceof IntersectionTypeShape);
 if (sameKind) {
-  // 三元以上：并到已有的联合/交叉里，保持 TS 的扁平成员表。
   units.splice(opIndex, memberIndex - opIndex + 1);
   atom.Parent = left;
   left.Add(atom);
   left.SourceRange.End = atom.SourceRange.End;
   left.Closed = true;
-  // 扩展已有形状：CreatedAt 留在它第一次建出的那一格，不在这里重盖。
   return left;
 }
 const folded = operator.Is("|")

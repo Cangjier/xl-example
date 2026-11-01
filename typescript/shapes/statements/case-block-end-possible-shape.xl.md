@@ -16,7 +16,6 @@ import { ControlStatementShape } from "./control-statement-shape.xl.md"
 
 # class CaseBlockEndPossibleShape extends PossibleShape
 
-CaseBlock 的 `}`：收口整块，再收口它所属的 switch 语句。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

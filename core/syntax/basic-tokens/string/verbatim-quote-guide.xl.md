@@ -32,18 +32,14 @@ return (this.Parent as String)!;
 ```ts
 const value = buffer.At(index);
 if (value === "\"") {
-  //说明 双引号是转义字符
   this.RemoveSelf();
   const Const = this.ParentString.AppendToLastConstString(value, index, context);
   if (Const.SourceRange.Start < 0) {
     Const.SignIn(index - 1);
   }
 } else {
-  //说明 字符串已结束
   this.RemoveSelf();
-  //手动强制退出
   this.ParentString.ForceExit(context, buffer, index - 1);
-  //最后一个字符需要重载
   context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index));
 }
 ```

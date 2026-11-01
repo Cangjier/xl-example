@@ -15,7 +15,6 @@ import { ControlStatementShape } from "./control-statement-shape.xl.md"
 
 # class DoEndPossibleShape extends PossibleShape
 
-`do … while (cond);` 的 `;`：语句范围含分号（与 TS 一致），分号本身不进 children。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -46,7 +45,6 @@ return unit instanceof Symbol && unit.Closed && unit.Is(";");
 ```ts
 const semicolon = host.Data[tokenIndex] as Symbol;
 host.SourceRange.End = semicolon.SourceRange.End;
-// `;` 不进 children：显式标记右边界已定，Close 不再用最后一个子节点覆盖它。
 (host as ControlStatementShape).EndFixed = true;
 host.TryToClose(context);
 host.Quit();

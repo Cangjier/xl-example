@@ -43,7 +43,6 @@ return unit instanceof Symbol && unit.Closed && unit.Is(";");
 
 ```ts
 const semicolon = host.Data[tokenIndex] as Symbol;
-// 语句范围含 `;`（TS 的 ExpressionStatement 也含分号）；表达式子节点的范围不含。
 host.SourceRange.End = semicolon.SourceRange.End;
 (host as ExpressionStatementShape).EndsWithSemicolon = true;
 host.TryToClose(context);

@@ -23,11 +23,7 @@ import { TypeParserApi } from "./type-parser-api.xl.md"
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
 ```ts
-// 两条路径：
-// - 函数类型（`( … ) => …`）在 `=>` 处就已经增量长出 FunctionType 与参数，这里只做收口；
-// - 其余类型体仍是“先攒原始单元、再一次性把类型文法长出来”的兜底实现。
 if (this.HasBuiltType()) {
-  // 已经增量长出来的条件类型：先把最后一段的原始单元补成类型，再统一收口。
   for (const item of this.Data) {
     if (item instanceof ConditionalTypeShape) {
       TypeConditionalGrow.Finalize(item, context);
@@ -58,9 +54,6 @@ return CloseStates.Nothing;
 ## static method NormalizeRevisions:(node:Token)=>void
 
 ```ts
-// IMPORTANCE：CreatedRevisionAt 必须严格小于 CreatedAt。整段解析时先把「本该在哪一格」记下来，
-// 收口时把不满足的修订位清掉。CreatedAt 还没写的节点（build 没走过）保持原样：
-// 它的真实创建位置由创建方负责，修订位只标记「本该在哪一格」。
 if (node instanceof ShapeToken) {
   if (node.CreatedRevisionAt >= 0 && node.CreatedAt >= 0 && node.CreatedRevisionAt >= node.CreatedAt) {
     node.CreatedRevisionAt = -1;
@@ -74,12 +67,6 @@ for (const item of node.Data) {
 ## private method HasBuiltType:()=>bool
 
 ```ts
-// 只有「类型体」已经长成形状才算走了增量路径：头部的 TypeParameter 也是 TypeShape，
-// 它和还没收口的 TypeParameterList 都只是头部脚手架，算进来会让 `type A<T, U> = T`
-// 这类只在头部成形的别名在收口时被当成已完工，正文被 IsBasicToken 过滤掉。
-// 正文第一个名字建出的 TypeReference 也只是一个起点：`T[]` / `A | B` / `T["a"]` 的后半段
-// 还没被增量处理，收口时要把整段交给 ParseAlias（它会复用这颗引用，不重建）。
-// 关键字类型同理：`string[]` / `string | number` 的后缀还没增量处理，不能当正文已完工。
 for (const item of this.Data) {
   if (item instanceof TypeShape
       && !(item instanceof TypeParameterShape)

@@ -12,25 +12,19 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 # class CaseSectionShape extends ShapeToken
 
-CaseClause / DefaultClause 的公共部分：`case <expr>:` 或 `default:` 加上它名下的语句。
-Test 只有 CaseClause 有（DefaultClause 保持 null）。
 
 ## field Test:Token | null = null
 
 ## static method HandBack:(section:Token, tokenIndex:int, context:SyntaxContext)=>void
 
 ```ts
-// 子句遇到 `case` / `default` / `}`：先按最后一个代码子单元收口子句，
-// 再把这个记号交回 CaseBlock，由它的候选建下一个子句或收口整个块。
 const units = section.Data;
 const token = units[tokenIndex];
 units.splice(tokenIndex, 1);
-// 记号之前的尾随 trivia 归下一个子句（TS 的 pos 就是这么算的）：先摘出来，随记号一起搬回 CaseBlock。
 const tail:Array<Token> = [];
 while (units.length > 0 && units[units.length - 1].IsTriviaToken) {
   tail.unshift(units.pop()!);
 }
-// 右边界取「冒号末尾」与「最后一个语句末尾」的较大者：空子句停在冒号，非空子句停在语句。
 let end = section.SourceRange.End;
 for (let at = units.length - 1; at >= 0; at--) {
   const unit = units[at];

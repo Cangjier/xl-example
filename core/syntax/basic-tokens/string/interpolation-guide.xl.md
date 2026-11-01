@@ -39,7 +39,6 @@ const Value = buffer.At(index);
 if (Value !== "{") {
   const whole = SourceRange.Whole(buffer.Document!);
   if (this.BracketCount >= this.ParentString.InterpolationCount) {
-    //满足情况
     this.RemoveSelf();
     const Next = this.BracketCount - this.ParentString.InterpolationCount;
     for (let i = 0; i < Next; i++) {
@@ -62,7 +61,6 @@ if (Value !== "{") {
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index));
     return;
   } else {
-    //不满足情况
     this.RemoveSelf();
     for (const ItemIndex of this.Items) {
       this.ParentString.AppendToLastConstString(whole.At(ItemIndex), ItemIndex, context).TrySignIn(ItemIndex);

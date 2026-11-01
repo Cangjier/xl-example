@@ -43,8 +43,6 @@ if (this.Template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
     if (!this.Template.SymbolTemplate.IsHexDigit(value)) {
       return false;
     }
-    // 位数不限（`\u{0000061}` / `\u{0001D400}` 合法）：只有「再补一位」还落在 Unicode 标量上限内
-    // 才继续收。前缀全零时值为 0，可以任意长；越界的转义 `Common.IsUnicodeEscapeStart` 本就不会放行。
     return this.UnicodeBraceEscapeValue() * 16 <= Common.MaxUnicodeCodePoint();
   }
 }
@@ -75,7 +73,6 @@ if (whole.At(index + 1) !== "u") {
   return false;
 }
 if (whole.At(index + 2) === "{") {
-  // `\u{hex+}`：位数不限（前导零可任意多），累计码点 ≤ 0x10FFFF、必须以 `}` 收口。
   let at = index + 3;
   let digits = 0;
   let value = 0;
@@ -83,8 +80,6 @@ if (whole.At(index + 2) === "{") {
     value = value * 16 + Number.parseInt(whole.At(at), 16);
     digits++;
     at++;
-    // 前导零会把数字串拉任意长而值仍是 0；一旦累计值越界，继续补位只会更大 ⇒ 当场判非法。
-    // 这也把乘法限制在 0x10FFFF * 16 之内，不会溢出。
     if (value > Common.MaxUnicodeCodePoint()) {
       return false;
     }

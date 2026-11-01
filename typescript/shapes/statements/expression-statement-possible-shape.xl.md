@@ -28,7 +28,6 @@ const start = StatementUtil.StartIndex(units);
 if (start >= units.length || tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-// 只有当前语句的第一个代码单元才能开表达式语句；后续单元归语句内部或二元式。
 if (tokenIndex !== start) {
   return ShapeStates.Reject;
 }

@@ -136,8 +136,6 @@ while (this.Messages.length > 0) {
         if (this.Index !== at) {
           break;
         }
-        // 旧队列语义：一次重放没有推进、只压了新消息（典型是「先建形状、再把当前字符交回来」），
-        // 这个位置会被重新排队再处理一遍。这里就地重试，模拟那条回路；换不出推进才算挂死。
         attempts++;
         if (attempts > 8) {
           throw SyntaxException.FromMessage(

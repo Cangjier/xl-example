@@ -103,9 +103,6 @@ return CloseStates.Nothing;
 ## static method CanCombine:(context:SyntaxContext, unit:Token, value:string)=>bool
 
 ```ts
-// 最大匹配是词法层自己的默认，但它不知道自己在谁肚子里：`type A<T>= X` 的 `>=`、
-// `Array<Array<T>>` 的 `>>` 在这里合成之后，类型文法只能去改一个已经定型的 token。
-// 所以合并前先问宿主一句；宿主不实现就按原样合并。
 if (!("CanCombine" in unit)) {
   return true;
 }
@@ -115,8 +112,6 @@ return (unit as unknown as ICombineGuard).CanCombine(context, value);
 ## static method CanContinueIn:(context:SyntaxContext, unit:Token, prefix:string)=>bool
 
 ```ts
-// 宿主可以否掉「这个符号还能往后长」：类型里的 `<` / `>` 是单字符分界符，
-// 没有多字符符号以它们开头，所以一创建就能收口，不必等下一个字符。
 if (!("CanContinueSymbol" in unit)) {
   return true;
 }
@@ -128,8 +123,6 @@ return (unit as unknown as ICombineGuard).CanContinueSymbol(context, prefix);
 ```ts
 const template = unit.Template;
 const last = unit.Last();
-// `\u{…}` 花括号转义进行中：`{` / 十六进制位 / `}` 全归那个 Common，
-// 符号层必须让位，否则 `}` 会把还没写完转义的 Common 提前关掉。
 if (Common.IsInUnicodeBraceEscape(unit)) {
   return BranchStates.Undo;
 }
@@ -170,8 +163,6 @@ if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Bu
 const symbol = new Symbol(unit.Template);
 unit.Add(symbol);
 symbol.AppendAndSignOut(value, index).SignIn(index);
-// 两条收口理由：模板层面这个前缀已经长不动了，或者宿主当场否掉了它还能继续。
-// 后者让「类型里的 `<` 只能是分界符」这件事在符号创建的同一格成立。
 if (!symbol.CanContinue() || !Symbol.CanContinueIn(context, unit, symbol.Temp)) {
   symbol.TryToClose(context);
 }

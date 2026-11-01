@@ -9,8 +9,6 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 
 # class SimpleStatementShape extends ShapeToken
 
-`break` / `continue` 这一类只有关键字、没有子节点的语句。范围不含 `;`（它由 StatementEndPossibleShape 定在分号末尾），
-也不把尾随空白算进来。
 
 ## field EndsWithSemicolon:bool = false
 

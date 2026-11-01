@@ -19,7 +19,6 @@ import { TryStatementShape } from "./try-statement-shape.xl.md"
 
 # class CatchKeywordPossibleShape extends PossibleShape
 
-`try` 块之后的 `catch`（上下文关键字，不进 AST）。
 
 ## static method Arm:(statement:TryStatementShape)=>void
 

@@ -55,7 +55,6 @@ block.Quit();
 if (!(parent instanceof ControlStatementShape)) {
   return this.StampCreated(close, context);
 }
-// body 收口：`if` 等 `else`、`do` 等 `while`、`while`/`for` 直接收口。
 const waiting = ControlStatementShape.BodyClosed(parent, block, close.SourceRange.End, context);
 if (waiting !== null) {
   if ((waiting as ControlStatementShape).Kind === "do") {

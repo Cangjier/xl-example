@@ -91,7 +91,6 @@ try {
     }
     let transited = false;
     if (this.ProcessQueue !== null) {
-      // 与基类同一口径：当前字符只读一次，顺链传给每条跳转。
       for (const item of this.ProcessQueue.Data) {
         const state = item(context, this, buffer, index, value);
         if (state === BranchStates.Reload) {

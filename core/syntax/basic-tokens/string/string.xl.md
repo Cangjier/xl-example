@@ -96,7 +96,6 @@ try {
     }
     let transited = false;
     if (this.ProcessQueue !== null) {
-      // 与基类同一口径：当前字符只读一次，顺链传给每条跳转。
       for (const item of this.ProcessQueue.Data) {
         const state = item(context, this, buffer, index, value);
         if (state === BranchStates.Reload) {
@@ -217,14 +216,10 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
 } else if (this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw) {
   const config = this.Template.StringTemplate;
   const quoteInterpolation = config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes(this.StringChar);
-  // 转义结算的语言口径从模板上取：行终止符表（行续接）、模板串非法转义开关
-  //（ECMAScript 模板串里 legacy octal / `\8` `\9` 的 cooked 是 undefined，取原文）、
-  // 花括号形 `\u{…}` 是否允许超过 6 位十六进制。
   const lineTerminatorChars = config.LineTerminatorChars;
   const strictTemplateEscapes = config.StrictTemplateEscapes;
   const allowLongUnicodeBraceEscape = config.AllowLongUnicodeBraceEscape;
   if (this.Translate.IsTranslating) {
-    // `Accept` 已由 ExitOrPre 问过（返回 false 的那条在那边结算并重放），这里只可能是「还属于本次转义」。
     if (this.Translate.Append(value, allowLongUnicodeBraceEscape)) {
       this.AppendToLastConstString(this.Translate.DecodeClear(lineTerminatorChars, strictTemplateEscapes, allowLongUnicodeBraceEscape), index, context);
     }
@@ -254,7 +249,6 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
       } else if (quoteInterpolation && value === "\r") {
         this.AppendToLastConstString("\n", index, context);
       } else if (quoteInterpolation && value === "\n" && index > 0 && (index > buffer.Start ? buffer.At(index - 1) : SourceRange.Whole(buffer.Document!).At(index - 1)) === "\r") {
-        // CRLF 的后半：CR 已经按 `\n` 归一，这里不再追加
       } else {
         this.AppendToLastConstString(value, index, context);
       }
@@ -276,16 +270,12 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     this.AppendToLastConstString(value, index, context);
   }
 } else if (!this.IsSupportInterpolation && !this.IsSupportVerbatim && this.IsSupportRaw) {
-  // 引号由 ExitOrPre 挂上 RawQuoteExitGuide 后重放；这里只剩其余字符进常量块。
   this.AppendToLastConstString(value, index, context);
 } else if (this.IsSupportInterpolation && !this.IsSupportVerbatim && this.IsSupportRaw) {
-  // `{` 与引号都由 ExitOrPre 挂向导后重放；这里只剩其余字符进常量块。
   this.AppendToLastConstString(value, index, context);
 } else if (!this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw) {
   const plainConfig = this.Template.StringTemplate;
   if (this.Translate.IsTranslating) {
-    // 普通引号串：行续接认模板的 LineTerminatorChars、`\u{…}` 位数认 AllowLongUnicodeBraceEscape；
-    // 但**不**走模板串非法转义口径——普通引号串的 cooked 照旧解码（ts 侧那些输入本身有诊断）。
     if (this.Translate.Append(value, plainConfig.AllowLongUnicodeBraceEscape)) {
       this.AppendToLastConstString(this.Translate.DecodeClear(plainConfig.LineTerminatorChars, false, plainConfig.AllowLongUnicodeBraceEscape), index, context);
     }
@@ -351,8 +341,6 @@ for (const i of this.Data) {
 const config = this.Template.StringTemplate;
 if (this.Translate.IsTranslating) {
   if (!this.Translate.Accept(value, config.AllowLongUnicodeBraceEscape)) {
-    // `Accept` 不收的字符是「本次转义之外」的第一个字符：`\08` 的合法/非法要看它
-    //（`\0` 后跟十进制数字 = legacy octal），所以把它当 nextItem 传进去。
     const strictTemplateEscapes = this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw
       ? config.StrictTemplateEscapes
       : false;
@@ -376,7 +364,6 @@ if (value === this.StringChar && this.Translate.IsTranslating === false && !this
 if (this.Translate.IsTranslating === false) {
   if (this.IsSupportRaw && !this.IsSupportVerbatim) {
     if (value === this.StringChar) {
-      // 原始串的引号：挂 RawQuoteExitGuide 并重放，由向导数这一串引号。
       const guide = new RawQuoteExitGuide(this.Template);
       guide.StringChar = this.StringChar;
       {
@@ -391,7 +378,6 @@ if (this.Translate.IsTranslating === false) {
       return BranchStates.Reload;
     }
     if (this.IsSupportInterpolation && value === "{") {
-      // 内插 + 原始：`{` 挂 InterpolationGuide 并重放。
       {
         const lastOfMounted = this.Last();
         if (lastOfMounted !== null && !lastOfMounted.Closed) {
@@ -408,7 +394,6 @@ if (this.Translate.IsTranslating === false) {
     if (value === "{") {
       const quoteInterpolation = config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes(this.StringChar);
       if (!quoteInterpolation && config.HasInterpolationPrefix) {
-        // 前缀式内插：`{` 挂 InterpolationGuide 并重放，由向导数连续左花括号。
         {
           const lastOfMounted = this.Last();
           if (lastOfMounted !== null && !lastOfMounted.Closed) {

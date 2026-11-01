@@ -47,7 +47,6 @@ if (!symbolTemplate.IsWhiteSpace(value)) {
   }
   return BranchStates.Undo;
 }
-// 空白段整段收：窗口内连续空白一次扫完，跳过逐字符的驱动帧与分派。
 const document = buffer.Document!;
 const raw = document.GetRaw(index, buffer.End);
 let offset = 1;

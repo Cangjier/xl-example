@@ -18,8 +18,6 @@ import { ForOpenPossibleShape } from "./for-head-opening.xl.md"
 
 # class ForStatementPossibleShape extends PossibleShape
 
-`for` 关键字：先建解析期的 ForHeadShape，`(` 由 ForOpenPossibleShape 认领。
-到 `)` 再按头部形态换成真正的语句节点。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

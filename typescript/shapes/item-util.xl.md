@@ -20,7 +20,6 @@ return at;
 ## static method PositionOf:(units:Array<Token>, index:int)=>int
 
 ```ts
-// 形状的 pos 取「把它与前一个代码隔开的那个 trivia 的起点」；没有 trivia 就取它自己的起点。
 const unit = units[index];
 let at = index - 1;
 while (at >= 0 && units[at].IsTriviaToken) {

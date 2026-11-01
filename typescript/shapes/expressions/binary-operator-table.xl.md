@@ -55,8 +55,6 @@ this.RightAssociative = rightAssociative;
 ## static method All:()=>Array<BinaryOperatorInfo>
 
 ```ts
-// 优先级数值与 TypeScript 的 getBinaryOperatorPrecedence 对齐（越大绑得越紧）。
-// ** 是唯一的右结合二元运算符；其余同级都左结合。
 let infos = BinaryOperatorTable.Cached;
 if (infos === null) {
   infos = [

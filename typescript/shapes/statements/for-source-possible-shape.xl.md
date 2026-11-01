@@ -18,7 +18,6 @@ import { ForClosePossibleShape } from "./for-close-possible-shape.xl.md"
 
 # class ForSourcePossibleShape extends PossibleShape
 
-`of` / `in` 之后的被迭代表达式（当前接一个操作数，二元式留给后续扩展）。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

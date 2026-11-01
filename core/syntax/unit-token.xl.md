@@ -53,19 +53,15 @@ throw new Error("abstract member: ExitOrPre");
 
 ```ts
 try {
-  // 这四样在本次窗口内恒定，逐字符重复读只是多态属性读的开销。
   const end = buffer.End;
   const messages = context.Messages;
   const replaying = context.Replaying;
   const queue = this.ProcessQueue;
   while (index < end) {
-    // 本单元已在本次窗口里 Quit（关闭后卸载）：交回父单元处理剩余字符。
     const parent = this.Parent;
     if (parent !== null && parent.MountedUnit !== this) {
       return;
     }
-    // 还有未消费的消息（Reload）：先交回驱动层 DrainMessages 重放，保证重放先于后续字符。
-    // 重放本身（窗口只有一个位置）不受这条约束：队列里可能还有排在它后面的消息。
     if (!replaying && messages.length > 0) {
       return;
     }
@@ -95,7 +91,6 @@ try {
     }
     let transited = false;
     if (queue !== null) {
-      // 当前字符只读一次，顺链传给每条跳转（basic token 的 Transit 不再各自 `buffer.At(index)`）。
       const branches = queue.Data;
       for (let branch = 0; branch < branches.length; branch++) {
         const state = branches[branch](context, this, buffer, index, value);

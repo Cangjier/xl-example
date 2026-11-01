@@ -20,7 +20,6 @@ import { TryStatementShape } from "./try-statement-shape.xl.md"
 
 # class FinallyBlockPossibleShape extends PossibleShape
 
-`finally` 的块：收口它之后整条 TryStatement 一起收口。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

@@ -28,7 +28,6 @@ if (start >= units.length || tokenIndex < start || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
-// 当前语句的第一个代码单元就是那个 `{`。
 if (tokenIndex !== start) {
   return ShapeStates.Reject;
 }

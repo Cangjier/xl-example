@@ -17,8 +17,6 @@ import { ConditionCreatePossibleShape } from "../conditions/condition-create-pos
 
 # class DoWhileKeywordPossibleShape extends PossibleShape
 
-`do` 的 body 收口后，这条语句只剩一件事：等 `while`。关键字本身不进 children（TS 的 DoStatement 只有 body 与条件），
-只把它留作 basic token，Close 时过滤掉。
 
 ## static method Arm:(control:ControlStatementShape)=>void
 
@@ -47,7 +45,6 @@ if (!(unit instanceof Common) || !unit.Closed) {
 if (!unit.Is("while")) {
   return ShapeStates.Reject;
 }
-// `while` 必须紧跟在 body 之后：中间只有 trivia。
 const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
 if (prevIndex < 0 || units[prevIndex] !== host.Body) {
   return ShapeStates.Reject;
@@ -68,7 +65,6 @@ return unit instanceof Common && unit.Closed && unit.Is("while");
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-// `while` 之后就是条件括号，交给与 if 相同的条件通路。
 (host as ControlStatementShape).CatalogGuide = new CatalogGuide([new ConditionCreatePossibleShape()], null);
 host.MountedUnit = null;
 return this.StampCreated(host.Data[tokenIndex], context);

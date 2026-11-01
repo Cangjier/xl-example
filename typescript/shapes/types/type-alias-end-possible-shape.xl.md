@@ -28,10 +28,8 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 }
 const unit = units[tokenIndex];
 if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
-  // `;` 也可能落在类型字面量的成员之间：括号没配平就一直等，别把它当语句结束。
   return TypeBalanceUtil.IsBalanced(units, tokenIndex) ? ShapeStates.Accept : ShapeStates.Reject;
 }
-// 无分号换行：下一个代码单元是能起新语句的关键字，且前缀括号配平，就收口并把该单元交回 SourceFile。
 if (unit instanceof Common && unit.Closed && TypeAliasEndPossibleShape.IsStatementStart(unit)) {
   if (!TypeBalanceUtil.IsBalanced(units, tokenIndex)) {
     return ShapeStates.Reject;
@@ -79,7 +77,6 @@ if (unit instanceof Symbol && unit.Is(";")) {
   units.splice(tokenIndex, 1);
 } else {
   end = previous >= 0 ? units[previous].SourceRange.End : unit.SourceRange.Start;
-  // 当前 token 连同它前面的 trivia 一起交回 SourceFile：下一条语句的 pos 要含这段前导 trivia。
   tail = units.splice(previous >= 0 ? previous + 1 : tokenIndex);
 }
 const parsed = TypeParserApi.ParseAlias(units, units.length, alias.Template);

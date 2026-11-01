@@ -20,7 +20,6 @@ import { CatchBlockEndPossibleShape } from "./catch-block-end-possible-shape.xl.
 
 # class CatchBlockPossibleShape extends PossibleShape
 
-`catch` 的块：用 catch 专属终点，收口块之后还要把 CatchClause 与 TryStatement 一起收掉。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

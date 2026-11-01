@@ -54,9 +54,6 @@ host.Quit();
 if (!(control instanceof ControlStatementShape)) {
   return this.StampCreated(semicolon, context);
 }
-// body 收口：`if` 等 `else`、`do` 等 `while`、`while`/`for` 直接收口。
-// 收口链可能把更外层的 if 交回来说「它还在等 `else`」
-// （`if (a) if (b) c; else d; else e;` 里内层吃掉了第一个 `else`，外层还在等下一个）。
 const waiting = ControlStatementShape.BodyClosed(control, host, semicolon.SourceRange.End, context);
 if (waiting !== null) {
   if ((waiting as ControlStatementShape).Kind === "do") {

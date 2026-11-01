@@ -33,7 +33,6 @@ import { StatementGuide } from "./statement-guide.xl.md"
 if (!(host instanceof ControlStatementShape)) {
   return ShapeStates.Reject;
 }
-// 普通控制语句（if / while / for）的 body 跟在条件之后；`do` 是 body 先来（BodyFirst）。
 if (!host.BodyFirst && host.Condition === null) {
   return ShapeStates.Reject;
 }
@@ -42,7 +41,6 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
-// 注释（AreaAnnotation / LineAnnotation）也是 trivia：body 还没到，候选必须留着等。
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -67,8 +65,6 @@ if (!unit.Closed) {
 if (!ControlBodyPossibleShape.FollowsHead(host, units, tokenIndex)) {
   return ShapeStates.Reject;
 }
-// body 本身可以是另一条 `if`（`if (a) if (b) c` 的 then 分支、`else if` 的 else 分支）。
-// 关键字在这里先建形状，它自己的条件候选接着吃 `(`：所以这里只看「头之后紧跟 if」。
 if (unit.Is("if")) {
   return ShapeStates.Accept;
 }
@@ -81,10 +77,7 @@ return ShapeStates.Accept;
 ## static method FollowsHead:(host:ControlStatementShape, units:Array<Token>, tokenIndex:int)=>bool
 
 ```ts
-// body 的左边只能是本语句的头部：条件表达式（then body）或 `else` 关键字（else body）。
-// `else` 建在这一步之前，所以两者都是已归档的子单元。
 const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
-// `do` 的 body 是这条语句的第一个代码单元：左侧没有头部可言。
 if (prevIndex < 0) {
   return host.BodyFirst;
 }
@@ -98,8 +91,6 @@ return host.ElseKeyword !== null && prev === host.ElseKeyword;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-// 这里拿不到 host：两类前驱都放行（操作数 = 条件，已收口的 `else` 关键字 = else body），
-// 与 host 的绑定在 ComputeByIndex 里已经按对象身份核对过。
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
@@ -107,7 +98,6 @@ const unit = units[tokenIndex];
 const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
 const prev = prevIndex >= 0 ? units[prevIndex] : null;
 const isElseHead = prev !== null && prev instanceof Common && prev.Closed && prev.Is("else");
-// 没有前驱只可能是 `do` 的 body（host 绑定已在 Compute 里核对过）。
 if (prev !== null && !ControlBodyPossibleShape.IsOperand(prev) && !isElseHead) {
   return false;
 }
@@ -148,7 +138,6 @@ if (unit instanceof Symbol && unit.Is("{")) {
   host.MountedUnit = block;
   return this.StampCreated(block, context);
 }
-// 嵌套 `if` 当 body：建内层 if，挂成本语句的 then / else 分支，后续字符流进它的条件候选。
 if (unit instanceof Common && unit.Is("if")) {
   const pos = ItemUtil.PositionOf(units, tokenIndex);
   const statement = new IfStatementShape(host.Template);

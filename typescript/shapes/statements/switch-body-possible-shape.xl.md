@@ -20,7 +20,6 @@ import { SwitchStatementShape } from "./switch-statement-shape.xl.md"
 
 # class SwitchBodyPossibleShape extends PossibleShape
 
-条件括号之后接 `{`：整段 case 列表是一个 CaseBlock（TS 也是 `<SwitchStatement><CaseBlock>` 两层）。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

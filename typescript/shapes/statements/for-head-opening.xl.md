@@ -26,7 +26,6 @@ import { ForDeclarationInitPossibleShape } from "./for-declaration-init-possible
 
 # class ForOpenPossibleShape extends PossibleShape
 
-`for` 之后的 `(`：摘掉它，头部正式开始。后面可能是绑定目标（表达式或声明），也可能是空子句的 `;`。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -75,7 +74,6 @@ return this.StampCreated(open, context);
 
 # class ForBindingPossibleShape extends PossibleShape
 
-头部的绑定目标：普通标识符/字面量，或 `let` / `const` / `var` 声明。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -102,7 +100,6 @@ if (unit.IsAny(["let", "const", "var"])) {
   return ShapeStates.Accept;
 }
 if (OperandUtil.CanStartExpression(unit)) {
-  // 只有 `for (v of …)` / `for (k in …)` 走「绑定目标」；其余（如 `for (i = 0; …)`）归 ForClauseStart。
   if (!ForHeadShape.IsWordAhead(unit.SourceRange.End, "of") && !ForHeadShape.IsWordAhead(unit.SourceRange.End, "in")) {
     return ShapeStates.Reject;
   }
@@ -135,7 +132,6 @@ const head = host as ForHeadShape;
 const units = head.Data;
 const common = units[tokenIndex] as Common;
 if (common.IsAny(["let", "const", "var"])) {
-  // 声明要等名字到齐再建（列表的 Start/End 一次定好，避免留下右边界未定的单元）。
   head.CatalogGuide = new CatalogGuide([new ForDeclarationNamePossibleShape()], null);
   head.MountedUnit = null;
   return this.StampCreated(common, context);
@@ -151,7 +147,6 @@ return this.StampCreated(operand, context);
 
 # class ForDeclarationNamePossibleShape extends PossibleShape
 
-`for (const v of …)` 的 `const v`：关键字与名字到手后一次建出 VariableDeclarationList / VariableDeclaration。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -235,7 +230,6 @@ return this.StampCreated(list, context);
 
 # class ForSemicolonPossibleShape extends PossibleShape
 
-经典 `for (;;)` 的两个空子句分隔符。带值子句暂不支持，所以只认「当前子句还没有值」。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

@@ -9,7 +9,6 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 
 # class PostfixUnaryExpressionShape extends ShapeToken
 
-`i++` / `i--`：TS 的 PostfixUnaryExpression，children 只有操作数（运算符不进 children）。
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 

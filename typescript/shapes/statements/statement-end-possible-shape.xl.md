@@ -15,7 +15,6 @@ import { SimpleStatementShape } from "./simple-statement-shape.xl.md"
 
 # class StatementEndPossibleShape extends PossibleShape
 
-`break;` / `continue;` 这一类简单语句的终止候选：只认 `;`，并把语句范围定在分号末尾。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -45,7 +44,6 @@ return unit instanceof Symbol && unit.Closed && unit.Is(";");
 
 ```ts
 const semicolon = host.Data[tokenIndex] as Symbol;
-// 语句范围含 `;`（与 TS 一致）；`;` 本身是 basic token，Close 时会被过滤掉。
 host.SourceRange.End = semicolon.SourceRange.End;
 (host as SimpleStatementShape).EndsWithSemicolon = true;
 host.TryToClose(context);

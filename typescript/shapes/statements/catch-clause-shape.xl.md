@@ -10,7 +10,6 @@ import { Token } from "../../../core/syntax/token.xl.md"
 
 # class CatchClauseShape extends ShapeToken
 
-`catch (e) { … }` / `catch { … }`：children 是可选参数声明与块。
 
 ## field Parameter:Token | null = null
 

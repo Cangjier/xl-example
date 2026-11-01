@@ -10,7 +10,6 @@ import { Token } from "../../../core/syntax/token.xl.md"
 ## static method StartIndex:(units:Array<Token>)=>int
 
 ```ts
-// 已经建好的语句形状是 source 的「已归档前缀」；它们之后的第一个代码单元才是当前语句的起点。
 let start = 0;
 for (let at = 0; at < units.length; at++) {
   const unit = units[at];

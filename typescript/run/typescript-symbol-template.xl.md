@@ -16,8 +16,6 @@ if (super.IsWhiteSpace(item)) {
 switch (item) {
   case "\u000B":
   case "\u000C":
-  // U+0085（NEL）：TS 的 isWhiteSpaceSingleLine 把 nextLine 当单行空白（ECMAScript 不认）；
-  // 只在这里收口，core 不动；它不进 LineTerminator 表（TS 的 isLineBreak 不含 0x85）。
   case "\u0085":
   case "\u00A0":
   case "\u1680":

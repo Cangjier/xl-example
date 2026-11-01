@@ -20,8 +20,6 @@ import { ForSemicolonPossibleShape } from "./for-head-opening.xl.md"
 
 # class ForClauseEndPossibleShape extends PossibleShape
 
-子句的 `;` / `)`：把子句里的表达式按优先级收成一棵，挂回 ForHeadShape；
-`;` 之后接下一个子句（或空子句），`)` 则直接换成 ForStatement 节点。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

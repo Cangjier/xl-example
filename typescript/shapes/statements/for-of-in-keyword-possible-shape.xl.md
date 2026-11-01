@@ -17,7 +17,6 @@ import { ForSourcePossibleShape } from "./for-source-possible-shape.xl.md"
 
 # class ForOfInKeywordPossibleShape extends PossibleShape
 
-`for (v of …)` / `for (k in …)` 的 `of` / `in`（上下文关键字，本身不进 AST）。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

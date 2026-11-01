@@ -102,8 +102,6 @@ const binary = BinaryExpressionShape.FromLeftAndOperator(root, operator, info.Pr
 binary.Pos = BinaryExpressionPossibleShape.PosOf(root);
 binary.SourceRange.End = operator.SourceRange.End;
 binary.Closed = false;
-// 左操作数与运算符之间的 trivia 跟二元式一起走：替换 root..operator 这一段时它们会被挤出来，
-// 留在宿主里就成了游离单元（后面随宿主关闭一起丢）。放进二元式时排在运算符之前，源码顺序不变。
 const between:Array<Token> = [];
 for (let at = rootIndex + 1; at < tokenIndex; at++) {
   between.push(units[at]);
@@ -116,8 +114,6 @@ for (const item of between) {
   binary.Data.splice(insertAt, 0, item);
   insertAt++;
 }
-// 二元式接管后续输入：运算符之后的空白与右操作数都归它。右操作数到位后它仍开着，
-// 由运算符候选按优先级提/降，或在边界处由终结候选收口并交还宿主。
 binary.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
 host.MountedUnit = binary;
 return this.StampCreated(binary, context);

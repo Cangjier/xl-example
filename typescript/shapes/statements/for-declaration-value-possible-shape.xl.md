@@ -19,7 +19,6 @@ import { ForDeclarationEndPossibleShape } from "./for-declaration-end-possible-s
 
 # class ForDeclarationValuePossibleShape extends PossibleShape
 
-`for (const i = 0; …)` 的初始值：作为 VariableDeclaration 的子节点，右边界到值末尾。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

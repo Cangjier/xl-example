@@ -23,8 +23,6 @@ if (this.Temp[0] === "u") {
       return false;
     }
     if (allowLongUnicodeBraceEscape ?? false) {
-      // 位数不限：`}` 收口；十六进制位只在「累计值 * 16 + 这一位」仍 ≤ U+10FFFF 时才收。
-      // 累计值由 UnicodeBraceValueOf 封顶到 MaxUnicodeCodePoint + 1，所以这里的乘法不会溢出。
       if (item === "}") {
         return true;
       }
@@ -149,8 +147,6 @@ if (strictTemplateEscapes
         result = "\v";
         break;
       default:
-        // NonEscapeCharacter：\a -> "a"、\{ -> "{"、\d -> "d"、\ 空格 -> 空格
-        // 单独的 u / x 是「没攒够的十六进制转义」，按 ts 保留原文（要带上反斜杠）
         result = ch === "u" || ch === "x" ? "\\" + ch : ch;
         break;
     }

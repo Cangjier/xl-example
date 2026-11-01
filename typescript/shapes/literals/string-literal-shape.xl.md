@@ -26,7 +26,6 @@ return shape;
 ## static method ValueOf:(string:String)=>string
 
 ```ts
-// 引号串的内容由 ConstString 按转义解码后保存；TS 的 StringLiteral.text 也是解码后的值。
 for (const item of string.Data) {
   if (item instanceof ConstString) {
     return item.Temp;

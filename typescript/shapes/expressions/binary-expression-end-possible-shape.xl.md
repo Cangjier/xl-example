@@ -37,8 +37,6 @@ return BinaryExpressionEndPossibleShape.ShouldEnd(units, tokenIndex);
 ## static method ShouldEnd:(units:Array<Token>, tokenIndex:int)=>bool
 
 ```ts
-// 收口条件只有两种：右操作数已经到位，而当前单元要么是接不下去的非运算符 Symbol，
-// 要么是「换行之后的新语句开头」Common（ASI 场景，换行要交回语句层）。
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
@@ -97,7 +95,6 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 const unit = units[tokenIndex];
 let startIndex = tokenIndex;
 if (unit instanceof Common) {
-  // 新语句开头：把右操作数之后的 trivia（含那句换行）一起交回上层，ASI 认的是它。
   for (let at = tokenIndex - 1; at >= 0; at--) {
     const item = units[at];
     if (item.IsTriviaToken) {

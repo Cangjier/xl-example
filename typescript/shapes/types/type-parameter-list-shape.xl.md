@@ -26,10 +26,6 @@ import { TypeParserApi } from "./type-parser-api.xl.md"
 ## static method IsHeaderOpen:(units:Array<Token>, tokenIndex:int)=>bool
 
 ```ts
-// 声明头部的 `<` 只能是类型参数表：`type A<`、`class A<` 里它后面不可能接出别的东西。
-// 所以「名字 + 一个已闭合的 `<`」就是这张表的判定点，不需要等 `>`、`=`、`;` 或 EOF。
-// 判定放在这里，宿主把 TypeParameterListOpenPossibleShape 放进自己的 CatalogGuide 即可，
-// 不需要覆盖宿主的 ComputePossibleShapes。
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
@@ -57,8 +53,6 @@ return count === 2 && first >= 0 && units[first] instanceof IdentifierShape;
 ## static method IsParameterClose:(units:Array<Token>, tokenIndex:int)=>bool
 
 ```ts
-// 参数自己这一段没有 `>` 之外的未配平括号，这个 `>` 才是表的收口。
-// 参数表自己的 `<` 不在参数 Data 里，所以嵌套的 `Array<T>` 收口时这里还有 `<`，会被排除。
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
@@ -72,8 +66,6 @@ return TypeBalanceUtil.IsBalanced(units, tokenIndex);
 ## static method IsParameterSeparator:(units:Array<Token>, tokenIndex:int)=>bool
 
 ```ts
-// 顶层的 `,` 才切段：约束里的 `Map<string, number>`、类型字面量里的 `{ a: A, b: B }`
-// 都还有没配平的括号，交给参数自己的文法。
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
@@ -96,8 +88,6 @@ return code > 0;
 ## method OpenParameter:(context:SyntaxContext)=>TypeParameterShape
 
 ```ts
-// `<` / `,` 那一格立刻建出下一颗参数：它从这一刻就存在（CreatedAt = 这一格），
-// 名字、约束、默认值随后作为 basic token 流进它自己的 Data，到顶层 `,` / `>` 再收成形状。
 const parameter = new TypeParameterShape(this.Template);
 parameter.CatalogGuide = new CatalogGuide([], new TypeParameterEndPossibleShape());
 this.Add(parameter);
@@ -110,8 +100,6 @@ return parameter;
 ## method FinishParameter:(context:SyntaxContext, parameter:TypeParameterShape, tokenIndex:int)=>void
 
 ```ts
-// 参数这一段结束：tokenIndex 是顶层 `,` / `>`（EOF 时为 -1）。只把这一段交给单参数文法，
-// 填进早就建好的那颗 shape；分隔符与中间的 trivia 不再保留。
 const units = parameter.Data;
 const atEnd = tokenIndex < 0;
 const limit = atEnd ? units.length : tokenIndex;
@@ -126,7 +114,6 @@ for (let at = 0; at < limit; at++) {
   }
 }
 if (code === 0) {
-  // `type A<>` / `type A<T,>`：空段只允许出现在表的 `>` 前，这颗参数作废。
   const emptyBeforeClose = !atEnd && delimiter instanceof Symbol && delimiter.Closed && delimiter.Is(">");
   if (!emptyBeforeClose) {
     throw new Error("TypeParameterList: 类型参数缺少名称");
@@ -169,7 +156,6 @@ this.OpenParameter(context);
 ## method Finalize:(context:SyntaxContext)=>void
 
 ```ts
-// 表只是脚手架：AST 里没有 TypeParameterList 这一层，已经建好的参数直接挂回声明宿主。
 if (this.Closed) {
   return;
 }
@@ -215,7 +201,6 @@ if (tokenIndex < 0 || tokenIndex >= host.Data.length) {
 if (TypeParameterListShape.IsHeaderOpen(host.Data, tokenIndex)) {
   return ShapeStates.Accept;
 }
-// 这个名字后面已经长出别的东西了：让位给条件类型 / 函数类型候选。
 return ShapeStates.Reject;
 ```
 
@@ -258,7 +243,6 @@ if (TypeParameterListShape.IsParameterClose(units, tokenIndex)) {
 if (TypeParameterListShape.IsParameterSeparator(units, tokenIndex)) {
   return ShapeStates.Accept;
 }
-// 名字 / 约束还在长：没有候选，EndPossible 继续等。
 return ShapeStates.Reject;
 ```
 

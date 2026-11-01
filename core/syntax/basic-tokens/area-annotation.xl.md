@@ -46,7 +46,6 @@ if (!context.Replaying && context.Messages.length > 0) {
   return;
 }
 const document = buffer.Document!;
-// 跨窗口：上一个窗口以 `*` 收尾，当前字符是 `/` ⇒ 结束序列正好跨在窗口边界上。
 if (index > 0 && this.Tmp.endsWith("*") && document.GetValue(index) === "/") {
   this.Tmp = this.Tmp.slice(0, this.Tmp.length - 1);
   this.SignOut(index + 1);
@@ -59,7 +58,6 @@ if (index > 0 && this.Tmp.endsWith("*") && document.GetValue(index) === "/") {
 const raw = document.GetRaw(index, end);
 const close = raw.indexOf("*/");
 if (close >= 0) {
-  // `close` 处是结尾 `*`：正文到它之前为止；结尾 `*` 本来就不进 `Tmp`。
   this.Tmp += raw.substring(0, close);
   const slash = index + close + 1;
   this.SignOut(slash + 1);

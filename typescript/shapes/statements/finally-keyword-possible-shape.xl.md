@@ -17,7 +17,6 @@ import { FinallyBlockPossibleShape } from "./finally-block-possible-shape.xl.md"
 
 # class FinallyKeywordPossibleShape extends PossibleShape
 
-`catch` 块（或 `try` 块）之后的 `finally`。
 
 ## static method Arm:(statement:TryStatementShape)=>void
 

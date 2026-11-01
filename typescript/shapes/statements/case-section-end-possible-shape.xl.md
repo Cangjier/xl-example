@@ -16,8 +16,6 @@ import { CaseSectionShape } from "./case-section-shape.xl.md"
 
 # class CaseSectionEndPossibleShape extends PossibleShape
 
-子句的右边界记号：下一个 `case` / `default`，或整个块的 `}`。
-记号本身不属于子句：先把子句收口，再交回 CaseBlock 继续建。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

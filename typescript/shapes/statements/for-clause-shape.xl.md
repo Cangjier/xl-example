@@ -9,8 +9,6 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 
 # class ForClauseShape extends ShapeToken
 
-`for` 头部里一个子句的解析期容器。`Role` 是 0/1/2（初始化 / 条件 / 递增），
-`;` 或 `)` 收口时把里面的表达式交给 ForHeadShape，本节点不进 AST。
 
 ## field Role:int = 0
 

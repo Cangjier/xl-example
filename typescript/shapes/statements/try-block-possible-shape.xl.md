@@ -20,8 +20,6 @@ import { TryStatementShape } from "./try-statement-shape.xl.md"
 
 # class TryBlockPossibleShape extends PossibleShape
 
-`try` 之后必须是块。这个块用 try 专属的终结候选：`}` 之后要看 `catch` / `finally`，
-不能按普通块直接收口。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

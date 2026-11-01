@@ -68,10 +68,6 @@ if (at < 0) {
 parent.Data.splice(at, 1, expression);
 expression.Parent = parent;
 parent.Condition = expression;
-// 条件之后的接法按语句种类分派：
-// - `switch`：CaseBlock；
-// - `do`：`while (…)` 之后等 `;`；
-// - 其余（if / while）：body。
 if (parent.Kind === "switch") {
   parent.CatalogGuide = new CatalogGuide([new SwitchBodyPossibleShape()], null);
 } else if (parent.Kind === "do") {

@@ -31,10 +31,6 @@ return CloseStates.Nothing;
 ## method CanCombine:(context:SyntaxContext, value:string)=>bool
 
 ```ts
-// 类型里的 `<` / `>` 永远是分界符，一个字符都不多：
-// `type A<T>= X` 的 `>=`、`Array<Array<T>>` 的 `>>` 都必须在词法层分开，
-// 否则类型文法拿到的是一个已经定型的 token，只能回头去改它的文本。
-// 前提由调用方保证：最后一个子单元就是那个还没关闭的符号。
 const last = this.Last();
 if (!(last instanceof Symbol)) {
   return true;
@@ -46,17 +42,12 @@ return text !== "<" && text !== ">";
 ## method CanContinueSymbol:(context:SyntaxContext, prefix:string)=>bool
 
 ```ts
-// 与 CanCombine 同一条规则，只是提前到符号创建时回答：`<` / `>` 在类型里没有多字符形态，
-// 所以它们在创建的那一格就收口，形状层（例如「名字后的 `<` 只能是类型参数表」）
-// 因此可以在同一格判定，而不是等下一个字符来证明。
 return prefix !== "<" && prefix !== ">";
 ```
 
 ## static method Finish:(node:ShapeToken, pos:int, start:int, end:int, children:Array<Token>)=>void
 
 ```ts
-// 类型节点在“类型表达式解析”这一步一次性成形：Pos 取 full start（含前导 trivia），
-// SignIn/SignOut 取源码范围，children 按 TS 的 forEachChild 顺序挂上。
 node.Pos = pos;
 node.SignIn(start);
 for (const child of children) {

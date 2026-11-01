@@ -11,11 +11,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 
 # class ForHeadShape extends ShapeToken
 
-`for ( … )` 括号里的头部。它只是解析期的临时容器：`)` 收口时按 Mode 拆成
-ForStatement / ForOfStatement / ForInStatement，绝不进最终 AST。
 
-- Mode 为空：经典 `for (;;)`（当前只接空子句）；
-- Mode `of` / `in`：`for (<target> of <expr>)` / `for (<target> in <expr>)`。
 
 ## field Segment:int = 0
 
@@ -31,9 +27,6 @@ ForStatement / ForOfStatement / ForInStatement，绝不进最终 AST。
 
 ## method DropTriviaBefore:(tokenIndex:int)=>int
 ```ts
-// 吃掉分隔记号（`(` / `of` / `in` / `;`）的同时，把它左边那串 trivia 一起丢掉：
-// 它们属于这个记号，不属于后面的节点。否则 PositionOf 会把「上一个代码之后的第一段 trivia」
-// 当成下一个节点的 pos（`for (v of xs)` 的 xs 会错拿 `of` 前的空格）。
 let at = tokenIndex - 1;
 while (at >= 0 && this.Data[at].IsTriviaToken) {
   at--;
@@ -59,8 +52,6 @@ return CloseStates.Nothing;
 ## static method IsWordAhead:(from:int, word:string)=>bool
 
 ```ts
-// ComputeByIndex 拿不到 SyntaxContext，但当前文档在 SourceRange 上有全局指针；
-// 这里按文档前瞻一个上下文关键字（`of` / `in`），用来区分 `for (v of xs)` 与经典 `for (i = 0; …)`。
 const document = SourceRange.CurrentDocument;
 if (document === null) {
   return false;

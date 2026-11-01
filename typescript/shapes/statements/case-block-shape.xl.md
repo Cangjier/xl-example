@@ -10,7 +10,6 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 
 # class CaseBlockShape extends ShapeToken
 
-`switch (…) { … }` 里那个花括号块：children 是 CaseClause / DefaultClause。
 
 ## field EndedByBrace:bool = false
 

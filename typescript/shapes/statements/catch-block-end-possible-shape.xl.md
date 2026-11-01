@@ -19,7 +19,6 @@ import { TryStatementShape } from "./try-statement-shape.xl.md"
 
 # class CatchBlockEndPossibleShape extends PossibleShape
 
-`catch` 块的 `}`：收口块 → 收口 CatchClause → 再看 `finally` 或直接收口 TryStatement。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

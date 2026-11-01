@@ -43,7 +43,6 @@ return ShapeStates.Uncertain;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-// 当前语句的头是 `let`，标识符收口，并且标识符是这一格唯一的代码单元。
 const start = StatementUtil.StartIndex(units);
 const keywordIndex = start;
 if (keywordIndex >= units.length) {

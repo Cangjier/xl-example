@@ -42,12 +42,10 @@ if (Value === "}") {
     (this.Parent as InterpolationString)!.ForceExit(context, buffer, index);
     return;
   } else if (this.BracketCount < this.AncestorString.InterpolationCount) {
-    //不确定
   } else {
     throw new Error("");
   }
 } else {
-  //不正常
   throw new Error("插值关闭异常");
 }
 this.Items.push(index);

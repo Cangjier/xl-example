@@ -19,8 +19,6 @@ import { StatementGuide } from "./statement-guide.xl.md"
 
 # class CaseColonPossibleShape extends PossibleShape
 
-`case <expr>:` / `default:` 的冒号：子句头结束，后面是它名下的语句表。
-冒号本身从 Data 里摘掉（basic token 留在开头会把 StatementUtil.StartIndex 卡住）。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -36,7 +34,6 @@ const unit = units[tokenIndex];
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(":")) {
   return ShapeStates.Reject;
 }
-// `case` 子句必须先有测试值；`default` 没有。
 if (host instanceof CaseClauseShape && host.Test === null) {
   return ShapeStates.Reject;
 }

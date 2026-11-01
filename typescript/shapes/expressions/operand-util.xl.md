@@ -46,8 +46,6 @@ return OperandUtil.IsIdentifier(text) && !OperandUtil.IsKeyword(text);
 ## static method PositionOf:(units:Array<Token>, index:int)=>int
 
 ```ts
-// pos 取「紧贴该单元左侧那串 trivia 的起点」。不能只用数组顺序：
-// 二元式封口后，前面的 trivia 可能排在它后面，ItemUtil.PreviousCode 的相邻假设不成立。
 let pos = units[index].SourceRange.Start;
 let moved = true;
 while (moved) {

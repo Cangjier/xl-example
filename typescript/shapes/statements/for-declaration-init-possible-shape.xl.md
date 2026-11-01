@@ -20,7 +20,6 @@ import { ForDeclarationEndPossibleShape } from "./for-declaration-end-possible-s
 
 # class ForDeclarationInitPossibleShape extends PossibleShape
 
-`for (const i = 0; …)`：声明后面的 `=` 是初始化记号（不是赋值运算），右值挂到 declaration 下。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -66,8 +65,6 @@ declaration.CatalogGuide = new CatalogGuide(
   [new ForDeclarationValuePossibleShape()],
   new ForDeclarationEndPossibleShape(),
 );
-// 挂载链必须沿 Parent 走：declaration 的父是 list，直接把 head.MountedUnit 指到 declaration
-// 会让 declaration.Process 的「父单元仍挂着我」判定失败。
 list.MountedUnit = declaration;
 head.MountedUnit = list;
 return this.StampCreated(equals, context);

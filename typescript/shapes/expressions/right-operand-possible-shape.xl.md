@@ -27,12 +27,9 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
-// 运算符归 BinaryExpression 候选；已建字面量不再重复建。其余单元保持 Uncertain，
-// 让注释之类还没被消费的 basic token 不会把整棵候选集清零。
 if (unit instanceof NumericLiteralShape || unit instanceof IdentifierShape || unit instanceof Symbol) {
   return ShapeStates.Reject;
 }
-// 只有「还缺右操作数」的时候才收 Common；右操作数已到位再来的 Common 归终结候选。
 if (unit instanceof Common && unit.Closed && tokenIndex === units.length - 1) {
   if (RightOperandPossibleShape.IsWaitingForOperand(units, tokenIndex)) {
     return ShapeStates.Accept;
@@ -72,7 +69,5 @@ const units = host.Data;
 const common = units[tokenIndex] as Common;
 const operand = OperandUtil.FromCommon(common, OperandUtil.PositionOf(units, tokenIndex));
 common.Replace(operand);
-// 右操作数到位不等于二元式收口：后面可能还有优先级更松的运算符，或者尾随空白/注释。
-// 这里只把操作数挂上，二元式保持开着，由运算符候选或终结候选决定什么时候封口。
 return this.StampCreated(operand, context);
 ```

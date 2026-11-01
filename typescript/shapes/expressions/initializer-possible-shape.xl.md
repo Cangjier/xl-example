@@ -40,7 +40,6 @@ if (!(unit instanceof Common) || !unit.Closed) {
 if (InitializerPossibleShape.ShouldBuild(units, tokenIndex)) {
   return ShapeStates.Accept;
 }
-// 不是 `=` 之后的首操作数：让位给 Asi / 其它候选，别和它们同时存活。
 return ShapeStates.Reject;
 ```
 
@@ -53,7 +52,6 @@ return InitializerPossibleShape.ShouldBuild(units, tokenIndex);
 ## static method ShouldBuild:(units:Array<Token>, tokenIndex:int)=>bool
 
 ```ts
-// 初始化式的第一项：`=` 之后刚关闭的那个 Common，按文本落成 Identifier 或 NumericLiteral。
 const unit = units[tokenIndex];
 if (!(unit instanceof Common) || !unit.Closed) {
   return false;

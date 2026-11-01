@@ -49,8 +49,6 @@ return this.ComputePossibleShapesByIndex(host, host.Data.length - 1, context, so
 if (typeof context === "undefined") {
   throw new Error(`CatalogGuide: context 必须通过形参传入（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
 }
-// [T2:GUARD] 同一格（tokenIndex + Data.length）已经成功建过 ⇒ 不重开候选。
-// 换格 / 换长度都让两个字段不再相等，正常的新格因此不会被拦住。
 const token = host.Data[tokenIndex];
 if (token === undefined) {
   return ComputePossibleShapesStates.Nothing;

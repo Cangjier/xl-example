@@ -20,8 +20,6 @@ import { ControlBodyPossibleShape } from "./control-body-possible-shape.xl.md"
 ## static method Arm:(control:ControlStatementShape)=>void
 
 ```ts
-// 一条 if 的 then 分支已经收口：只剩等 `else` 这一种可能。
-// 建候选的地方（`else` 建完、then 分支收完）都走这里，避免各处各建一份。
 control.CatalogGuide = new CatalogGuide([new ControlElsePossibleShape()], null);
 ```
 
@@ -36,7 +34,6 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
-// then 分支与 `else` 之间的空白/注释都是 trivia：候选留着，等真正的关键字。
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -46,7 +43,6 @@ if (!(unit instanceof Common) || !unit.Closed) {
 if (!unit.Is("else")) {
   return ShapeStates.Reject;
 }
-// `else` 必须紧跟在 then 分支之后：中间只有 trivia。
 const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
 if (prevIndex < 0 || units[prevIndex] !== host.Body) {
   return ShapeStates.Reject;
@@ -70,8 +66,6 @@ return unit instanceof Common && unit.Closed && unit.Is("else");
 const control = host as ControlStatementShape;
 const keyword = host.Data[tokenIndex] as Common;
 control.ElseKeyword = keyword;
-// `else` 之后的 body 有三种：块、表达式语句、另一条 `if`（`else if` 链）。
-// 三者都由 ControlBodyPossibleShape 认领，它按 `else` 关键字认出这是 else 分支。
 control.CatalogGuide = new CatalogGuide([new ControlBodyPossibleShape()], null);
 host.MountedUnit = null;
 return this.StampCreated(keyword, context);

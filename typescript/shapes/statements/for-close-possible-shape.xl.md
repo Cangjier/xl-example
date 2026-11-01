@@ -20,9 +20,6 @@ import { ForInStatementShape } from "./for-in-statement-shape.xl.md"
 
 # class ForClosePossibleShape extends PossibleShape
 
-头部的 `)`：按 Mode 把解析期的 ForHeadShape 换成真正的语句节点，并接上 body 候选。
-TS 的节点是三种（ForStatement / ForOfStatement / ForInStatement），类名本身就是 AST 节点名，
-所以种类必须在看到 `of` / `in` 之后才能定。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -77,7 +74,6 @@ if (head.Mode === "of") {
   statement = new ForStatementShape(head.Template);
 }
 statement.Kind = "for";
-// 经典 `for (;;)` 没有条件可挂；用 BodyFirst 表示「没有头部条件也可以直接接 body」。
 statement.BodyFirst = true;
 statement.Pos = head.Pos;
 statement.SignIn(head.SourceRange.Start);
@@ -89,8 +85,6 @@ for (const item of head.Data) {
   }
 }
 head.Data.length = 0;
-// of / in：body 的左边是被迭代表达式，借 Condition 记着它（只是字段，不是子节点）。
-// 经典 for：body 的左边是最后一个子句（递增 / 条件 / 初始化），同样只是字段。
 if (head.Mode === "of" || head.Mode === "in") {
   statement.Condition = head.Right;
 } else {

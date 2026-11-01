@@ -16,7 +16,6 @@ import { CatchNamePossibleShape } from "./catch-name-possible-shape.xl.md"
 
 # class CatchOpenPossibleShape extends PossibleShape
 
-`catch (`：括号只是语法记号，参数本身是 VariableDeclaration 子节点。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

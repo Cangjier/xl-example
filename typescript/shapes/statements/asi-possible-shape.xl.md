@@ -26,7 +26,6 @@ const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-// 只认「当前 token 是能起新语句的 Common」；运算符/括号/关键字都不在这里处理。
 const unit = units[tokenIndex];
 if (!(unit instanceof Common) || !unit.Closed) {
   return ShapeStates.Reject;
@@ -39,11 +38,9 @@ if (prevIndex < 0) {
   return ShapeStates.Reject;
 }
 const prev = units[prevIndex];
-// 上一条语句必须已经完整：最后一个代码单元是操作数（不是 `=` 或运算符）。
 if (!AsiPossibleShape.IsClosedOperand(prev)) {
   return ShapeStates.Reject;
 }
-// 只看 prevIndex 与 tokenIndex 之间（含 tokenIndex 之前的 trivia），不碰 tokenIndex 之后。
 if (!AsiPossibleShape.HasLineTerminator(units, prevIndex, tokenIndex)) {
   return ShapeStates.Reject;
 }
@@ -70,7 +67,6 @@ return AsiPossibleShape.HasLineTerminator(units, prevIndex, tokenIndex);
 ## static method IsStatementKeyword:(unit:Common)=>bool
 
 ```ts
-// 这些关键字能起一条新语句，但还不能当场建成形状：先交回 SourceFile，等它的后续单元。
 const text = unit.TempToString();
 return text === "let" || text === "debugger" || text === "type";
 ```
@@ -108,7 +104,6 @@ return false;
 ## static method PositionOf:(units:Array<Token>, index:int)=>int
 
 ```ts
-// 只扫 0..index，不读 tokenIndex 之后的 item。
 let pos = units[index].SourceRange.Start;
 let moved = true;
 while (moved) {
@@ -135,11 +130,9 @@ const operandStart = OperandUtil.CanStartExpression(unit);
 const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
 const prev = units[prevIndex];
 const pos = AsiPossibleShape.PositionOf(units, tokenIndex);
-// 先把 prev 之后的 trivia + 当前 Common 摘下来。
 const tail = units.splice(prevIndex + 1);
 let current:Common | null = null;
 if (operandStart) {
-  // 操作数：当前 Common 直接落成下一条 ExpressionStatement。
   current = tail.pop()! as Common;
 }
 let statement:Token | null = null;
@@ -170,7 +163,6 @@ if (source === null) {
 statement.SourceRange.End = prev.SourceRange.End;
 statement.TryToClose(context);
 statement.Quit();
-// trivia 挂回 SourceFile，排在旧语句之后。
 let insertAt = source.Data.indexOf(statement);
 insertAt = insertAt < 0 ? source.Data.length : insertAt + 1;
 for (const item of tail) {
@@ -178,12 +170,10 @@ for (const item of tail) {
   source.Data.splice(insertAt, 0, item);
   insertAt++;
 }
-// 关键字（let / debugger）：当前 Common 也挂回 SourceFile，等它的后续单元再建形状。
 if (current === null) {
   source.MountedUnit = null;
   return this.StampCreated(statement, context);
 }
-// 操作数：当前 Common 直接落成下一条 ExpressionStatement，挂到 SourceFile。
 const operand = OperandUtil.FromCommon(current, pos);
 const next = new ExpressionStatementShape(source.Template);
 next.Pos = pos;

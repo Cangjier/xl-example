@@ -20,7 +20,6 @@ import { ForSemicolonPossibleShape } from "./for-head-opening.xl.md"
 
 # class ForDeclarationEndPossibleShape extends PossibleShape
 
-`for (const i = 0; …)` 初始化子句的 `;`：收口 declaration → list，再推进到条件子句。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 

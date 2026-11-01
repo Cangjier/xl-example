@@ -18,7 +18,6 @@ import { CaseColonPossibleShape } from "./case-colon-possible-shape.xl.md"
 
 # class CaseTestPossibleShape extends PossibleShape
 
-`case` 之后的第一项：条件值落成一个操作数（数字 / 标识符），后续运算符交给二元式。
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -62,7 +61,6 @@ const operand = OperandUtil.FromCommon(common, ItemUtil.PositionOf(units, tokenI
 units.splice(tokenIndex, 1, operand);
 operand.Parent = host;
 (host as CaseClauseShape).Test = operand;
-// 测试值之后：`:` 收口，或者接着算二元式。
 (host as CaseClauseShape).CatalogGuide = new CatalogGuide([new CaseColonPossibleShape()], null);
 host.MountedUnit = null;
 return this.StampCreated(operand, context);

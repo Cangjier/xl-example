@@ -52,9 +52,6 @@ if (last instanceof Common) {
   }
 }
 if (last instanceof Symbol && last.Is("}")) {
-  // 箭头函数体 `() => { }` 之后换行再 `/`：TS 一定断句（箭头体的 `}` 后不能接二元运算），
-  // 该 `/` 是新语句的正则起点（r1231）。对象字面量 / `function` 表达式体仍走原判据
-  //（它们后面跟 `/` 可能是除号：`const o = {} / 2` / `const f = function () {} / 2` 都是除法）。
   const openIndex = TypeScriptRegexTemplate.MatchingOpenIndex(units, lastIndex, "{", "}");
   if (openIndex >= 0 && TypeScriptRegexTemplate.IsArrowBodyTail(units, openIndex, slashIndex)) {
     return true;
@@ -268,11 +265,8 @@ template.SymbolTemplate = new TypeScriptSymbolTemplate();
 template.SymbolTemplate.AllowCombineSymbol(["**", "**=", "<<", ">>", ">>>", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "%=", "&&=", "||=", "??="]);
 template.NumberTemplate.BigIntSuffix = "n";
 template.SymbolTemplate.SupportUnicodeEscapeIdentifier = true;
-// D：ECMAScript 行续接认全部 LineTerminator（`\n` / `\r` / U+2028 / U+2029；CRLF 仍算一个）。
 template.StringTemplate.LineTerminatorChars = ["\n", "\r", "\u2028", "\u2029"];
-// G：模板串里的 legacy octal / `\8` `\9` 是非法转义，cooked 取原文（带标签模板合法）。
 template.StringTemplate.StrictTemplateEscapes = true;
-// `\u{…}` 位数不限（前导零任意多），只受 U+10FFFF 约束（F/cover7 口径；core 默认仍是历史 6 位上限）。
 template.StringTemplate.AllowLongUnicodeBraceEscape = true;
 template.RegexTemplate = new TypeScriptRegexTemplate();
 template.RegexTemplate.ExpressionKeywords = [

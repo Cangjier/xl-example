@@ -10,8 +10,6 @@ import { Token } from "../../../core/syntax/token.xl.md"
 
 # class TryStatementShape extends ShapeToken
 
-`try { … } catch (e) { … } finally { … }`：三段各自是普通 Block，按源码顺序挂在 children 下。
-catch 子句是独立节点（CatchClause），finally 的块直接是 TryStatement 的 child。
 
 ## field TryBlock:Token | null = null
 
@@ -29,7 +27,6 @@ statement.Quit();
 ## method DropTriviaBefore:(tokenIndex:int)=>int
 
 ```ts
-// 吃掉 `finally` 关键字的同时，把它左边那串 trivia 一起丢掉：它属于关键字，不属于后面的块。
 let at = tokenIndex - 1;
 while (at >= 0 && this.Data[at].IsTriviaToken) {
   at--;

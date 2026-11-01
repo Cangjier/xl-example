@@ -26,7 +26,6 @@ if (start >= units.length || tokenIndex < start || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
-// 空语句只由独占当前语句位置的 `;` 构成。
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(";")) {
   return ShapeStates.Reject;
 }
