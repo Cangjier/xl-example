@@ -4,7 +4,7 @@
  * 排序就是分级：P0 → P1 → P2 → P3，同一阶段内按文件、行号。计数与排序都在本地做，
  * 模型给的顺序一律不用。
  *
- * @module dsh-code-review/report
+ * @module cj-ts-code-review/report
  */
 
 import { STAGES, STAGE_INFO } from './rules.mjs'

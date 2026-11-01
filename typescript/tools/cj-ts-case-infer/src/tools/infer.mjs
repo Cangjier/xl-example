@@ -10,7 +10,7 @@
  * 模型只出数字，树和格式都在本地生成：输出小、可校验；不合格就带着问题重试，
  * 某一次仍然不合格就整体失败、不写盘（宁可不写，也不写半份错的）。
  *
- * @module dsh-case-infer/tools/infer
+ * @module cj-ts-case-infer/tools/infer
  */
 
 import fs from 'node:fs'

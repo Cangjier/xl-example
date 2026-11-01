@@ -1,5 +1,5 @@
 /**
- * dsh-case-infer：`case_infer` 工具。
+ * cj-ts-case-infer：`case_infer` 工具。
  *
  * 一件什么事：给 tts 用例产出 `<名字>.infer` —— 每个形状的 `created at`（shape token）
  * 与 `llm determined`（模型判定的确定格），写完立刻做 llm vs created 对拍。
@@ -10,7 +10,7 @@
  * 零依赖、纯 ESM：不 import 任何 harness 包，`llm` 从 Cordis 上下文里取，
  * 所以整条链路可以用一个假的 `{ stream() }` 离线测。
  *
- * @module dsh-case-infer
+ * @module cj-ts-case-infer
  */
 
 import { normalizeConfig } from './src/config.mjs'

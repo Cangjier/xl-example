@@ -6,7 +6,7 @@
  *
  * 源码用缩进而不是 ``` 围栏：被审文件本身就是 xl.md 时会带 ``` 围栏，围栏会截断 prompt。
  *
- * @module dsh-code-review/prompt
+ * @module cj-ts-code-review/prompt
  */
 
 import { STAGE_INFO } from './rules.mjs'

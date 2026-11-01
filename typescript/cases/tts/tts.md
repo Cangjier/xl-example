@@ -83,7 +83,7 @@ node typescript/tools/case-infer.mjs --check <xxx.ts>     # llm determined vs cr
 
 - 骨架默认不覆盖已有 `.infer`，要重来加 `--force`。
 - 骨架和 `--check` / `--format` 都要读 `build/ts`（先 `npm run build`），因为 `created at` 只能从 shape token 取。
-- 也可以让宿主模型来判定：DSH 插件 `typescript/tools/dsh-case-infer` 注册了 `case_infer`，
+- 也可以让宿主模型来判定：DSH 插件 `typescript/tools/cj-ts-case-infer` 注册了 `case_infer`，
   用当前默认模型生成并立刻对拍（`npm run infer:test` 是它的离线测试）。默认跑 3 次、逐节点投票；
   有分歧的节点先写 `-> llm ?` 交回 DSH 用 `decisions` 定（见插件 README）。
 - `--check` 的状态：`ok` / `late +N`（模型判得比实际创建晚 N 格）/ `early -N` / `unfilled`（llm 还是 `?`）/

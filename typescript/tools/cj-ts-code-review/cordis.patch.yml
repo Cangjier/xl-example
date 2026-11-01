@@ -1,16 +1,16 @@
-# dsh-code-review bundle patch.
+# cj-ts-code-review bundle patch.
 #
 # 只贡献一行：`code-review` Host 插件，注册 `code_review` 工具。
 # 需要 `tools` 服务；审查时另外需要宿主加载了 `llm` 与 `agentDefaultModel`
 # （任何正式 profile 都有）；不写 provider/model 就跟随界面上的默认模型。
 #
 # 规则文件是 `docs/IMPORTANCE.md`（用户独占，插件只读）：留空 `rulesPath` 就用它，
-# `root` 留空则从插件自身位置推（<repo>/typescript/tools/dsh-code-review/src 上四级）。
+# `root` 留空则从插件自身位置推（<repo>/typescript/tools/cj-ts-code-review/src 上四级）。
 - insert:
     - id: code-review
-      name: 'dsh-code-review'
+      name: 'cj-ts-code-review'
       config:
-        # 仓库根目录；留空 = 从插件位置推（typescript/tools/dsh-code-review/src → 上四级）。
+        # 仓库根目录；留空 = 从插件位置推（typescript/tools/cj-ts-code-review/src → 上四级）。
         # root: 'C:/Users/Admin/Documents/GitHub/xl-example'
 
         # 规则文件；相对 root。默认 docs/IMPORTANCE.md。

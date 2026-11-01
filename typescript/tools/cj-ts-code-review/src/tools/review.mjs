@@ -7,7 +7,7 @@
  * 分阶段审：P0 先审、P1 再审……每一轮只把该阶段的规则送进 prompt，模型不必在几十条规则里
  * 自己挑重点，报告的排序也因此天然是分级顺序。
  *
- * @module dsh-code-review/tools/review
+ * @module cj-ts-code-review/tools/review
  */
 
 import fs from 'node:fs'

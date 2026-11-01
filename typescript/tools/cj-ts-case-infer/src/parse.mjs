@@ -4,7 +4,7 @@
  * 校验不是形式主义：这份数字马上会被写进 `.infer` 并当作期望值，
  * 少一个节点、多一个节点、抄错 pos/start、字符越界，都必须当场拒绝。
  *
- * @module dsh-case-infer/parse
+ * @module cj-ts-case-infer/parse
  */
 
 import { canonicalKind } from '../../shape-actual.mjs'

@@ -1,4 +1,4 @@
-# dsh-code-review
+# cj-ts-code-review
 
 DSH 插件：注册一个工具 `code_review`，按 `docs/IMPORTANCE.md` 审代码。
 
@@ -47,12 +47,12 @@ code_review
 ## 成本
 
 - 每个阶段 × 每批文件一次调用；默认 `filesPerCall: 3`、`stages: [P0, P1, P2]`。
-- 默认不传 `reasoningEffort`：审查需要推理，交给适配器的默认档位（与 `dsh-case-infer` 相反）。
+- 默认不传 `reasoningEffort`：审查需要推理，交给适配器的默认档位（与 `cj-ts-case-infer` 相反）。
 
 ## 测试
 
 ```bash
-node --test "typescript/tools/dsh-code-review/tests/*.test.mjs"
+node --test "typescript/tools/cj-ts-code-review/tests/*.test.mjs"
 # 仓库根：npm run review:test
 ```
 

@@ -74,12 +74,12 @@ TypeReference 与 Identifier）都被盖到 21。这次让实现去满足 prompt
 ```
 
 原因：`astLines` 打印的是 TypeScript 的区间别名（`FirstStatement` / `FirstLiteralToken`），
-`dsh-case-infer/src/parse.mjs` 用裸 `kind` 做节点键；而 `applyNumbers`、`nodeId`、actual 三边
+`cj-ts-case-infer/src/parse.mjs` 用裸 `kind` 做节点键；而 `applyNumbers`、`nodeId`、actual 三边
 都用 `canonicalKind` 折算后的名字（`VariableStatement` / `NumericLiteral`），于是这两个别名的
 数字填不回去。`parseNumbers` 自己校验通过（它和模型用同一套裸名字），所以错误拖到填表阶段才暴露。
 
 修复：`parse.mjs` 的 `keyOf` 统一走 `canonicalKind`（从 `../../shape-actual.mjs` 引入）。
-`npm run infer:test` 4/4 通过；`dsh_plugins disable/enable dsh-case-infer` 重载后同一用例一次生成成功。
+`npm run infer:test` 4/4 通过；`dsh_plugins disable/enable cj-ts-case-infer` 重载后同一用例一次生成成功。
 这处修改只影响节点对齐键，不改变模型回答的问题。
 
 ### 1.2 生成方式
@@ -191,7 +191,7 @@ only-at-signout: StringKeyword|13|14
 剩下的函数类型参数、实参表收口仍是同一类缺口。
 尖括号那一类还受 `<` 与小于号的歧义限制，属于已知的设计取舍（配平后才收口）。
 
-`TypeParameter` 这一条曾是**规格与实现互相矛盾**：`dsh-case-infer` 的 prompt 规则 4 说"由列表转换
+`TypeParameter` 这一条曾是**规格与实现互相矛盾**：`cj-ts-case-infer` 的 prompt 规则 4 说"由列表转换
 出来的节点取列表那一格（`<`）"，而实现把 TypeParameter 等到 `>` 才整表解析。现已按规则 4 改实现
 （见开头 2026-11-01 修正）：参数在 `<` / 顶层 `,` 那一格就建出来，不再有第二套口径。
 

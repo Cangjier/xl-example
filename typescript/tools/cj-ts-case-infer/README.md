@@ -1,4 +1,4 @@
-# dsh-case-infer
+# cj-ts-case-infer
 
 DSH 插件：注册一个工具 `case_infer`，给 tts 用例生成 `case.infer` —— 每个形状的
 `created at`（shape token 创建格）与 `llm determined`（模型判定的确定格）。
@@ -71,9 +71,9 @@ prompt 的规则 1–2 把口径写死：**取节点自己的名字/关键字收
 ```yaml
 - insert:
     - id: case-infer
-      name: 'dsh-case-infer'
+      name: 'cj-ts-case-infer'
       config:
-        root: null          # 留空 = 从插件位置推（<repo>/typescript/tools/dsh-case-infer 上三级）
+        root: null          # 留空 = 从插件位置推（<repo>/typescript/tools/cj-ts-case-infer 上三级）
         provider: null      # 留空 = 跟随界面上的默认模型
         model: null
         maxTokens: 8192
@@ -99,8 +99,8 @@ prompt 的规则 1–2 把口径写死：**取节点自己的名字/关键字收
 # 插件装在 desktop profile 里（dsh_plugins install 传这个目录，不是仓库根）
 ```
 
-装好后工具名 `case_infer`（本机已装：`dsh-case-infer`，profile 里是 `link:` 到本目录）。
-它依赖仓库里的 `typescript/tools/case-infer.mjs` 与 `build/ts`（跑过 `npm run build`）。
+装好后工具名 `case_infer`（profile 里是 `link:` 到本目录）。插件目录改名后 profile 里的旧条目会失效，
+要按新路径重新 `install` 一次；它依赖仓库里的 `typescript/tools/case-infer.mjs` 与 `build/ts`（跑过 `npm run build`）。
 
 改完插件代码不用重启 DSH：`dsh_plugins disable` + `enable` 同一个 bundle 就会重新加载。
 

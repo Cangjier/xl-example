@@ -1,5 +1,5 @@
 /**
- * dsh-code-review：`code_review` 工具。
+ * cj-ts-code-review：`code_review` 工具。
  *
  * 一件什么事：按 `docs/IMPORTANCE.md`（用户独占的硬性规范）审代码。规则由本地解析成
  * id + 分级（P0..P3），模型只回答「哪一行违反了哪一条」，证据逐字核对，报告按分级排序。
@@ -9,7 +9,7 @@
  * 零依赖、纯 ESM：不 import 任何 harness 包，`llm` 从 Cordis 上下文里取，
  * 所以整条链路可以用一个假的 `{ stream() }` 离线测。
  *
- * @module dsh-code-review
+ * @module cj-ts-code-review
  */
 
 import { normalizeConfig } from './src/config.mjs'

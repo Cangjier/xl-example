@@ -1,4 +1,4 @@
-# dsh-case-infer bundle patch.
+# cj-ts-case-infer bundle patch.
 #
 # 只贡献一行：case-infer  Host 插件，注册 `case_infer` 工具。
 # 需要 `tools` 服务；生成 .infer 时另外需要宿主加载了 `llm` 与 `agentDefaultModel`
@@ -6,13 +6,13 @@
 #
 # 它调用仓库里的 typescript/tools/case-infer.mjs：骨架、格式、对拍都在那边，
 # 插件只负责「把节点清单交给模型、把模型给的数字填回去」。所以 `root` 必须指向
-# xl-example 仓库根目录（默认从插件自身位置推出来：<repo>/typescript/tools/dsh-case-infer/src 上四级）。
+# xl-example 仓库根目录（默认从插件自身位置推出来：<repo>/typescript/tools/cj-ts-case-infer/src 上四级）。
 
 - insert:
     - id: case-infer
-      name: 'dsh-case-infer'
+      name: 'cj-ts-case-infer'
       config:
-        # 仓库根目录；留空 = 从插件位置推（typescript/tools/dsh-case-infer/src → 上四级）。
+        # 仓库根目录；留空 = 从插件位置推（typescript/tools/cj-ts-case-infer/src → 上四级）。
         # root: 'C:/Users/Admin/Documents/GitHub/xl-example'
 
         # 留空 = 用宿主当前默认模型（agentDefaultModel.currentSelection()）。

@@ -8,7 +8,7 @@
  * 分级不是文档里写的，是这份代码写死的关键词表：禁止/必须 → P0，只允许/需要 → P1，
  * 质量/优先 → P2，其余 → P3。分级表放在这里，改分级就是改这一张表，可测、可审。
  *
- * @module dsh-code-review/rules
+ * @module cj-ts-code-review/rules
  */
 
 import fs from 'node:fs'

@@ -12,7 +12,7 @@
  * 源码和逐字表都用缩进而不是 ``` 围栏：用例里可能就有反引号（模板字面量类型），
  * 围栏会被它们截断。
  *
- * @module dsh-case-infer/prompt
+ * @module cj-ts-case-infer/prompt
  */
 
 /**

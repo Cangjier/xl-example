@@ -1,11 +1,11 @@
 /**
  * 插件配置的归一化。
  *
- * 没有必填项：`root` 留空就从插件自身位置推（`<repo>/typescript/tools/dsh-code-review`
+ * 没有必填项：`root` 留空就从插件自身位置推（`<repo>/typescript/tools/cj-ts-code-review`
  * 上三级），`provider`/`model` 留空就用宿主当前默认模型，规则文件默认是
  * `<root>/docs/IMPORTANCE.md`（用户独占，只读）。
  *
- * @module dsh-code-review/config
+ * @module cj-ts-code-review/config
  */
 
 import path from 'node:path'
@@ -14,7 +14,7 @@ import { STAGES } from './rules.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 
-/** 插件自己所在的仓库根目录（typescript/tools/dsh-code-review/src → 上四级）。 */
+/** 插件自己所在的仓库根目录（typescript/tools/cj-ts-code-review/src → 上四级）。 */
 export const DEFAULT_ROOT = path.resolve(HERE, '..', '..', '..', '..')
 
 /**

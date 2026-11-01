@@ -1,10 +1,10 @@
 /**
  * 插件配置的归一化。
  *
- * 没有必填项：`root` 留空就从插件自身位置推（`<repo>/typescript/tools/dsh-case-infer`
+ * 没有必填项：`root` 留空就从插件自身位置推（`<repo>/typescript/tools/cj-ts-case-infer`
  * 上三级），`provider`/`model` 留空就用宿主当前默认模型。
  *
- * @module dsh-case-infer/config
+ * @module cj-ts-case-infer/config
  */
 
 import path from 'node:path'
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 
-/** 插件自己所在的仓库根目录（typescript/tools/dsh-case-infer/src → 上四级）。 */
+/** 插件自己所在的仓库根目录（typescript/tools/cj-ts-case-infer/src → 上四级）。 */
 export const DEFAULT_ROOT = path.resolve(HERE, '..', '..', '..', '..')
 
 /**

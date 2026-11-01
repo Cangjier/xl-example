@@ -4,7 +4,7 @@
  * 全部是确定性代码：路径展开、扩展名过滤、跳过目录、大小与数量上限。上限到了就**明说**
  * 跳过了哪些，不静默截断——一次只审了一半代码却报告「没问题」，比不审更糟。
  *
- * @module dsh-code-review/files
+ * @module cj-ts-code-review/files
  */
 
 import fs from 'node:fs'

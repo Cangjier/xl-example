@@ -1,5 +1,5 @@
 {
-  "name": "dsh-code-review",
+  "name": "cj-ts-code-review",
   "version": "0.1.0",
   "private": true,
   "description": "DSH plugin code_review: review code against docs/IMPORTANCE.md (user-owned rules), with rule ids and P0..P3 importance resolved locally, verbatim-snippet validation, and a report ordered by importance. Zero dependencies, Node built-ins only.",
