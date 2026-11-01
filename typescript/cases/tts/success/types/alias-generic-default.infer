@@ -7,11 +7,11 @@ type A<T = string> = T[]
 ```
 
 SourceFile  pos=0  src=[0,25)   // "【t:0】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,24)   // "type A【<:6】T = string" -> llm "string> =【␣:20】T[]"
+└─ TypeAliasDeclaration  pos=0  src=[0,24)   // "type A【<:6】T = string"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【<:6】T = string"
-   ├─ TypeParameter  pos=7  src=[7,17)   // "type A【<:6】T = string" -> llm "type A<T【␣:8】= string"
+   ├─ TypeParameter  pos=7  src=[7,17)   // "type A【<:6】T = string"
    │  ├─ Identifier  pos=7  src=[7,8)  text="T"   // "string【>:17】= T[" -> llm "type A<T【␣:8】= string"
    │  └─ StringKeyword  pos=10  src=[11,17)  text="string"   // "string【>:17】= T["
-   └─ ArrayType  pos=20  src=[21,24)   // ? -> llm "= T[]【⏎:24】"
+   └─ ArrayType  pos=20  src=[21,24)   // ? -> llm "> = T【[:22】]"
       └─ TypeReference  pos=20  src=[21,22)   // "> = T【[:22】]"
          └─ Identifier  pos=20  src=[21,22)  text="T"   // "> = T【[:22】]"

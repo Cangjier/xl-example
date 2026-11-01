@@ -8,6 +8,6 @@ debugger;
 ```
 
 SourceFile  pos=0  src=[0,12)   // "【a:0】debugger"
-├─ ExpressionStatement  pos=0  src=[0,1)   // "a【⏎:1】debugger" -> llm "【a:0】debugger"
-│  └─ Identifier  pos=0  src=[0,1)  text="a"   // "a【⏎:1】debugger" -> llm "【a:0】debugger"
-└─ LastStatement  pos=1  src=[2,11)   // "debugger【;:10】" -> llm "debugger;【⏎:11】"
+├─ ExpressionStatement  pos=0  src=[0,1)   // "a【⏎:1】debugger"
+│  └─ Identifier  pos=0  src=[0,1)  text="a"   // "a【⏎:1】debugger"
+└─ LastStatement  pos=1  src=[2,11)   // "debugger【;:10】"

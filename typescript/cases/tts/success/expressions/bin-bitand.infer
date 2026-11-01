@@ -7,11 +7,11 @@ let x = 1&2
 ```
 
 SourceFile  pos=0  src=[0,12)   // "【l:0】et x"
-└─ FirstStatement  pos=0  src=[0,11)   // "let x【␣:5】= 1&2" -> llm "= 1&2【⏎:11】"
-   └─ VariableDeclarationList  pos=0  src=[0,11)   // "let x【␣:5】= 1&2" -> llm "= 1&2【⏎:11】"
-      └─ VariableDeclaration  pos=3  src=[4,11)   // "let x【␣:5】= 1&2" -> llm "x = 1【&:9】2"
-         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【␣:5】= 1&2" -> llm "let【x:4】= 1&"
+└─ FirstStatement  pos=0  src=[0,11)   // "let x【␣:5】= 1&2"
+   └─ VariableDeclarationList  pos=0  src=[0,11)   // "let x【␣:5】= 1&2"
+      └─ VariableDeclaration  pos=3  src=[4,11)   // "let x【␣:5】= 1&2"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【␣:5】= 1&2"
          └─ BinaryExpression  pos=7  src=[8,11)   // "= 1&【2:10】"
-            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // "x = 1【&:9】2" -> llm "x =【1:8】&2"
-            ├─ AmpersandToken  pos=9  src=[9,10)  text="&"   // "= 1&【2:10】" -> llm "x = 1【&:9】2"
+            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // "x = 1【&:9】2"
+            ├─ AmpersandToken  pos=9  src=[9,10)  text="&"   // "= 1&【2:10】"
             └─ FirstLiteralToken  pos=10  src=[10,11)  text="2"   // "= 1&2【⏎:11】"

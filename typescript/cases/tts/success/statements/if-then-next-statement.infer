@@ -7,7 +7,7 @@ if (a) b; c;
 ```
 
 SourceFile  pos=0  src=[0,13)   // "【i:0】f (a)"
-├─ IfStatement  pos=0  src=[0,9)   // "if【␣:2】(a) b" -> llm "(a) b【;:8】c;"
+├─ IfStatement  pos=0  src=[0,9)   // "if【␣:2】(a) b"
 │  ├─ Identifier  pos=4  src=[4,5)  text="a"   // "if (a【):5】b; c"
 │  └─ ExpressionStatement  pos=6  src=[7,9)   // "(a) b【;:8】c;"
 │     └─ Identifier  pos=6  src=[7,8)  text="b"   // "(a) b【;:8】c;"

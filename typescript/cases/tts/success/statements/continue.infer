@@ -7,7 +7,7 @@ while (a) { continue; }
 ```
 
 SourceFile  pos=0  src=[0,24)   // "【w:0】hile"
-└─ WhileStatement  pos=0  src=[0,23)   // "while【␣:5】(a) {" -> llm "continu【e:19】; }"
+└─ WhileStatement  pos=0  src=[0,23)   // "while【␣:5】(a) {"
    ├─ Identifier  pos=7  src=[7,8)  text="a"   // "while (a【):8】{ continue"
-   └─ Block  pos=9  src=[10,23)   // "(a)【{:10】continue" -> llm "continue; }【⏎:23】"
-      └─ ContinueStatement  pos=11  src=[12,21)   // "continue【;:20】}" -> llm "continue;【␣:21】}"
+   └─ Block  pos=9  src=[10,23)   // "(a)【{:10】continue"
+      └─ ContinueStatement  pos=11  src=[12,21)   // "continue【;:20】}"

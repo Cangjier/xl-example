@@ -7,8 +7,8 @@ type A = readonly string[]
 ```
 
 SourceFile  pos=0  src=[0,27)   // "【t:0】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,26)   // "type A【␣:6】= readonly" -> llm "readonly st【r:20】ing[]"
+└─ TypeAliasDeclaration  pos=0  src=[0,26)   // "type A【␣:6】= readonly"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【␣:6】= readonly"
-   └─ TypeOperator  pos=8  src=[9,26)   // ? -> llm "readonl【y:16】string"
-      └─ ArrayType  pos=17  src=[18,26)   // ? -> llm "string[【]:25】"
-         └─ StringKeyword  pos=17  src=[18,24)  text="string"   // ? -> llm "strin【g:23】[]"
+   └─ TypeOperator  pos=8  src=[9,26)   // ? -> llm "readonly【␣:17】string"
+      └─ ArrayType  pos=17  src=[18,26)   // ? -> llm "string[]【⏎:26】"
+         └─ StringKeyword  pos=17  src=[18,24)  text="string"   // ? -> llm "string【[:24】]"

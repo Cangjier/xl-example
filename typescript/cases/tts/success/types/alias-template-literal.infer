@@ -7,10 +7,10 @@ type A = `a${string}b`
 ```
 
 SourceFile  pos=0  src=[0,23)   // "【t:0】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,22)   // "type A【␣:6】= `a$" -> llm "string}b【`:21】"
+└─ TypeAliasDeclaration  pos=0  src=[0,22)   // "type A【␣:6】= `a$"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【␣:6】= `a$"
-   └─ TemplateLiteralType  pos=8  src=[9,22)   // ? -> llm "string}b【`:21】"
-      ├─ TemplateHead  pos=8  src=[9,13)  text="`a${"   // ? -> llm "= `a【$:11】{string"
-      └─ TemplateLiteralTypeSpan  pos=13  src=[13,22)   // ? -> llm "string}【b:20】`"
+   └─ TemplateLiteralType  pos=8  src=[9,22)   // ? -> llm "A =【`:9】a${string"
+      ├─ TemplateHead  pos=8  src=[9,13)  text="`a${"   // ? -> llm "A = `【a:10】${string"
+      └─ TemplateLiteralTypeSpan  pos=13  src=[13,22)   // ? -> llm "string【}:19】b`"
          ├─ StringKeyword  pos=13  src=[13,19)  text="string"   // ? -> llm "string【}:19】b`"
-         └─ LastTemplateToken  pos=19  src=[19,22)  text="}b`"   // ? -> llm "string}b【`:21】"
+         └─ LastTemplateToken  pos=19  src=[19,22)  text="}b`"   // ? -> llm "string}b`【⏎:22】"

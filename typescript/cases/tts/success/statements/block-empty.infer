@@ -7,4 +7,4 @@
 ```
 
 SourceFile  pos=0  src=[0,4)   // "【{:0】}"
-└─ Block  pos=0  src=[0,3)   // "【{:0】}" -> llm "{【}:2】"
+└─ Block  pos=0  src=[0,3)   // "【{:0】}" -> llm "{【␣:1】}"

@@ -8,7 +8,7 @@ b
 ```
 
 SourceFile  pos=0  src=[0,4)   // "【a:0】b"
-├─ ExpressionStatement  pos=0  src=[0,1)   // "a【⏎:1】b" -> llm "【a:0】b"
-│  └─ Identifier  pos=0  src=[0,1)  text="a"   // "a【⏎:1】b" -> llm "【a:0】b"
-└─ ExpressionStatement  pos=1  src=[2,3)   // "a b【⏎:3】" -> llm "a【b:2】"
-   └─ Identifier  pos=1  src=[2,3)  text="b"   // "a b【⏎:3】" -> llm "a【b:2】"
+├─ ExpressionStatement  pos=0  src=[0,1)   // "a【⏎:1】b"
+│  └─ Identifier  pos=0  src=[0,1)  text="a"   // "a【⏎:1】b"
+└─ ExpressionStatement  pos=1  src=[2,3)   // "a b【⏎:3】"
+   └─ Identifier  pos=1  src=[2,3)  text="b"   // "a b【⏎:3】"

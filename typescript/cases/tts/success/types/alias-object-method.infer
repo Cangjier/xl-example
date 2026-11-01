@@ -7,12 +7,12 @@ type A = { m(a: string): void }
 ```
 
 SourceFile  pos=0  src=[0,32)   // "【t:0】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,31)   // "type A【␣:6】= { m" -> llm "void }【⏎:31】"
+└─ TypeAliasDeclaration  pos=0  src=[0,31)   // "type A【␣:6】= { m"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【␣:6】= { m"
-   └─ TypeLiteral  pos=8  src=[9,31)   // ? -> llm "void }【⏎:31】"
-      └─ MethodSignature  pos=10  src=[11,29)   // ? -> llm "void }【⏎:31】"
+   └─ TypeLiteral  pos=8  src=[9,31)   // ? -> llm "A = {【␣:10】m(a:"
+      └─ MethodSignature  pos=10  src=[11,29)   // ? -> llm "= { m【(:12】a: string"
          ├─ Identifier  pos=10  src=[11,12)  text="m"   // ? -> llm "= { m【(:12】a: string"
-         ├─ Parameter  pos=13  src=[13,22)   // ? -> llm "string【):22】: void"
+         ├─ Parameter  pos=13  src=[13,22)   // ? -> llm "{ m(a【::14】string"
          │  ├─ Identifier  pos=13  src=[13,14)  text="a"   // ? -> llm "{ m(a【::14】string"
          │  └─ StringKeyword  pos=15  src=[16,22)  text="string"   // ? -> llm "string【):22】: void"
          └─ VoidKeyword  pos=24  src=[25,29)  text="void"   // ? -> llm "void【␣:29】}"

@@ -7,5 +7,5 @@ for (;;) { }
 ```
 
 SourceFile  pos=0  src=[0,13)   // "【f:0】or (;"
-└─ ForStatement  pos=0  src=[0,12)   // "for (;;【):7】{ }" -> llm "(;;)【{:9】}"
-   └─ Block  pos=8  src=[9,12)   // "(;;)【{:9】}" -> llm ") { }【⏎:12】"
+└─ ForStatement  pos=0  src=[0,12)   // "for (;;【):7】{ }" -> llm "for【␣:3】(;;)"
+   └─ Block  pos=8  src=[9,12)   // "(;;)【{:9】}"

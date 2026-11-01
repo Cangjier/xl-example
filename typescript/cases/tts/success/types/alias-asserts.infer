@@ -8,13 +8,13 @@ type A = (x: unknown) => asserts x is string
 ```
 
 SourceFile  pos=0  src=[0,45)   // "【t:0】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,44)   // "type A【␣:6】= (x:" -> llm "type A =【␣:8】(x: unknown"
+└─ TypeAliasDeclaration  pos=0  src=[0,44)   // "type A【␣:6】= (x:"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【␣:6】= (x:"
-   └─ FunctionType  pos=8  src=[9,44)   // "unknown) =【>:23】asserts" -> llm "A = (【x:10】: unknown"
-      ├─ Parameter  pos=10  src=[10,20)   // "unknown) =【>:23】asserts" -> llm "unknown【):20】=> asserts"
+   └─ FunctionType  pos=8  src=[9,44)   // "unknown) =【>:23】asserts"
+      ├─ Parameter  pos=10  src=[10,20)   // "unknown) =【>:23】asserts" -> llm "= (x【::11】unknown"
       │  ├─ Identifier  pos=10  src=[10,11)  text="x"   // "unknown) =【>:23】asserts" -> llm "= (x【::11】unknown"
       │  └─ UnknownKeyword  pos=12  src=[13,20)  text="unknown"   // "unknown) =【>:23】asserts" -> llm "unknown【):20】=> asserts"
-      └─ FirstTypeNode  pos=24  src=[25,44)   // "asserts【␣:32】x is" -> llm "string【⏎:44】"
+      └─ FirstTypeNode  pos=24  src=[25,44)   // "asserts【␣:32】x is"
          ├─ AssertsKeyword  pos=24  src=[25,32)  text="asserts"   // "asserts【␣:32】x is"
          ├─ Identifier  pos=32  src=[33,34)  text="x"   // "asserts x【␣:34】is string"
          └─ StringKeyword  pos=37  src=[38,44)  text="string"   // "string【⏎:44】"

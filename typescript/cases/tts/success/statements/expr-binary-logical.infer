@@ -7,8 +7,8 @@ a && b;
 ```
 
 SourceFile  pos=0  src=[0,8)   // "【a:0】&& b"
-└─ ExpressionStatement  pos=0  src=[0,7)   // "a【␣:1】&& b;" -> llm "&& b【;:6】"
-   └─ BinaryExpression  pos=0  src=[0,6)   // "a &&【␣:4】b;" -> llm "&& b【;:6】"
+└─ ExpressionStatement  pos=0  src=[0,7)   // "a【␣:1】&& b;"
+   └─ BinaryExpression  pos=0  src=[0,6)   // "a &&【␣:4】b;"
       ├─ Identifier  pos=0  src=[0,1)  text="a"   // "a【␣:1】&& b;"
       ├─ AmpersandAmpersandToken  pos=1  src=[2,4)  text="&&"   // "a &&【␣:4】b;"
       └─ Identifier  pos=4  src=[5,6)  text="b"   // "&& b【;:6】"

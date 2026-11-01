@@ -63,6 +63,7 @@ n=4000 时相差约 **340 倍**，曲线从二次变平。
 
 ### shape tokn关键字段
 CreatedAt 必须是实际创建位置
+CreatedRevisionAt 是修订位置，但必须是小于CreatedAt的位置，用于标记未增量创建。
 
 ### 其他注意点
 - **越界**：`host.Data[tokenIndex]` 不存在 → 返回 `Nothing`（调用方可能按旧长度遍历）。

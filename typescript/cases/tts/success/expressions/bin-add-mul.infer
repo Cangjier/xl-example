@@ -7,11 +7,11 @@
 ```
 
 SourceFile  pos=0  src=[0,6)   // "【1:0】+2*3"
-└─ ExpressionStatement  pos=0  src=[0,5)   // "1【+:1】2*3" -> llm "1+2*3【⏎:5】"
-   └─ BinaryExpression  pos=0  src=[0,5)   // "1+【2:2】*3" -> llm "1+2*3【⏎:5】"
+└─ ExpressionStatement  pos=0  src=[0,5)   // "1【+:1】2*3"
+   └─ BinaryExpression  pos=0  src=[0,5)   // "1+【2:2】*3"
       ├─ FirstLiteralToken  pos=0  src=[0,1)  text="1"   // "1【+:1】2*3"
       ├─ PlusToken  pos=1  src=[1,2)  text="+"   // "1+【2:2】*3"
-      └─ BinaryExpression  pos=2  src=[2,5)   // "1+2*【3:4】" -> llm "1+2*3【⏎:5】"
+      └─ BinaryExpression  pos=2  src=[2,5)   // "1+2*【3:4】"
          ├─ FirstLiteralToken  pos=2  src=[2,3)  text="2"   // "1+2【*:3】3"
          ├─ AsteriskToken  pos=3  src=[3,4)  text="*"   // "1+2*【3:4】"
          └─ FirstLiteralToken  pos=4  src=[4,5)  text="3"   // "1+2*3【⏎:5】"

@@ -7,9 +7,9 @@ if (a) if (b) c; d;
 ```
 
 SourceFile  pos=0  src=[0,20)   // "【i:0】f (a)"
-├─ IfStatement  pos=0  src=[0,16)   // "if【␣:2】(a) if" -> llm "if (a)【␣:6】if (b"
+├─ IfStatement  pos=0  src=[0,16)   // "if【␣:2】(a) if"
 │  ├─ Identifier  pos=4  src=[4,5)  text="a"   // "if (a【):5】if ("
-│  └─ IfStatement  pos=6  src=[7,16)   // "a) if【␣:9】(b) c" -> llm "if (b)【␣:13】c; d;"
+│  └─ IfStatement  pos=6  src=[7,16)   // "a) if【␣:9】(b) c"
 │     ├─ Identifier  pos=11  src=[11,12)  text="b"   // "if (b【):12】c; d"
 │     └─ ExpressionStatement  pos=13  src=[14,16)   // "(b) c【;:15】d;"
 │        └─ Identifier  pos=13  src=[14,15)  text="c"   // "(b) c【;:15】d;"

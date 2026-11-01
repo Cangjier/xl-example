@@ -7,7 +7,7 @@ type A = keyof Foo
 ```
 
 SourceFile  pos=0  src=[0,19)   // "【t:0】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,18)   // "type A【␣:6】= keyof" -> llm "keyof Foo【⏎:18】"
+└─ TypeAliasDeclaration  pos=0  src=[0,18)   // "type A【␣:6】= keyof"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【␣:6】= keyof"
    └─ TypeOperator  pos=8  src=[9,18)   // ? -> llm "keyof【␣:14】Foo"
       └─ TypeReference  pos=14  src=[15,18)   // ? -> llm "keyof Foo【⏎:18】"

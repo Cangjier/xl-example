@@ -8,10 +8,10 @@ b
 ```
 
 SourceFile  pos=0  src=[0,12)   // "【l:0】et x"
-├─ FirstStatement  pos=0  src=[0,9)   // "let x【␣:5】= a b" -> llm "x = a【⏎:9】b"
-│  └─ VariableDeclarationList  pos=0  src=[0,9)   // "let x【␣:5】= a b" -> llm "x = a【⏎:9】b"
-│     └─ VariableDeclaration  pos=3  src=[4,9)   // "let x【␣:5】= a b" -> llm "x = a【⏎:9】b"
-│        ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【␣:5】= a b" -> llm "let【x:4】= a"
-│        └─ Identifier  pos=7  src=[8,9)  text="a"   // "x = a【⏎:9】b" -> llm "x =【a:8】b"
+├─ FirstStatement  pos=0  src=[0,9)   // "let x【␣:5】= a b"
+│  └─ VariableDeclarationList  pos=0  src=[0,9)   // "let x【␣:5】= a b"
+│     └─ VariableDeclaration  pos=3  src=[4,9)   // "let x【␣:5】= a b"
+│        ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【␣:5】= a b"
+│        └─ Identifier  pos=7  src=[8,9)  text="a"   // "x = a【⏎:9】b"
 └─ ExpressionStatement  pos=9  src=[10,11)   // "= a b【⏎:11】"
-   └─ Identifier  pos=9  src=[10,11)  text="b"   // "= a b【⏎:11】" -> llm "= a【b:10】"
+   └─ Identifier  pos=9  src=[10,11)  text="b"   // "= a b【⏎:11】"

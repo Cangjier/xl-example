@@ -7,11 +7,11 @@ if (a) { b; } else { c; }
 ```
 
 SourceFile  pos=0  src=[0,26)   // "【i:0】f (a)"
-└─ IfStatement  pos=0  src=[0,25)   // "if【␣:2】(a) {" -> llm "else【{:19】c; }"
+└─ IfStatement  pos=0  src=[0,25)   // "if【␣:2】(a) {"
    ├─ Identifier  pos=4  src=[4,5)  text="a"   // "if (a【):5】{ b;"
-   ├─ Block  pos=6  src=[7,13)   // "(a)【{:7】b; }" -> llm "b; }【␣:13】else"
-   │  └─ ExpressionStatement  pos=8  src=[9,11)   // ") { b【;:10】} else" -> llm "{ b;【␣:11】} else"
+   ├─ Block  pos=6  src=[7,13)   // "(a)【{:7】b; }"
+   │  └─ ExpressionStatement  pos=8  src=[9,11)   // ") { b【;:10】} else"
    │     └─ Identifier  pos=8  src=[9,10)  text="b"   // ") { b【;:10】} else"
-   └─ Block  pos=18  src=[19,25)   // "else【{:19】c; }" -> llm "c; }【⏎:25】"
-      └─ ExpressionStatement  pos=20  src=[21,23)   // "else { c【;:22】}" -> llm "{ c;【␣:23】}"
+   └─ Block  pos=18  src=[19,25)   // "else【{:19】c; }"
+      └─ ExpressionStatement  pos=20  src=[21,23)   // "else { c【;:22】}"
          └─ Identifier  pos=20  src=[21,22)  text="c"   // "else { c【;:22】}"

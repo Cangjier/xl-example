@@ -7,12 +7,12 @@ type A = { next: A | null }
 ```
 
 SourceFile  pos=0  src=[0,28)   // "【t:0】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,27)   // "type A【␣:6】= { next" -> llm "A =【{:9】next"
+└─ TypeAliasDeclaration  pos=0  src=[0,27)   // "type A【␣:6】= { next"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【␣:6】= { next"
-   └─ TypeLiteral  pos=8  src=[9,27)   // ? -> llm "A = {【␣:10】next:"
-      └─ PropertySignature  pos=10  src=[11,25)   // ? -> llm "next: A【␣:18】| null"
+   └─ TypeLiteral  pos=8  src=[9,27)   // ? -> llm "A =【{:9】next"
+      └─ PropertySignature  pos=10  src=[11,25)   // ? -> llm "next【::15】A |"
          ├─ Identifier  pos=10  src=[11,15)  text="next"   // ? -> llm "next【::15】A |"
-         └─ UnionType  pos=16  src=[17,25)   // ? -> llm "null【}:26】"
+         └─ UnionType  pos=16  src=[17,25)   // ? -> llm "next: A【␣:18】| null"
             ├─ TypeReference  pos=16  src=[17,18)   // ? -> llm "next: A【␣:18】| null"
             │  └─ Identifier  pos=16  src=[17,18)  text="A"   // ? -> llm "next: A【␣:18】| null"
             └─ LiteralType  pos=20  src=[21,25)   // ? -> llm "null【␣:25】}"

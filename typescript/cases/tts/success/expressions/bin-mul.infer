@@ -7,9 +7,9 @@ let x = 1*2
 ```
 
 SourceFile  pos=0  src=[0,12)   // "【l:0】et x"
-└─ FirstStatement  pos=0  src=[0,11)   // "let x【␣:5】= 1*2" -> llm "= 1*【2:10】"
-   └─ VariableDeclarationList  pos=0  src=[0,11)   // "let x【␣:5】= 1*2" -> llm "= 1*【2:10】"
-      └─ VariableDeclaration  pos=3  src=[4,11)   // "let x【␣:5】= 1*2" -> llm "= 1*【2:10】"
+└─ FirstStatement  pos=0  src=[0,11)   // "let x【␣:5】= 1*2"
+   └─ VariableDeclarationList  pos=0  src=[0,11)   // "let x【␣:5】= 1*2"
+      └─ VariableDeclaration  pos=3  src=[4,11)   // "let x【␣:5】= 1*2"
          ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【␣:5】= 1*2"
          └─ BinaryExpression  pos=7  src=[8,11)   // "= 1*【2:10】"
             ├─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // "x = 1【*:9】2"

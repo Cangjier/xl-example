@@ -7,7 +7,7 @@ while (a) { break; }
 ```
 
 SourceFile  pos=0  src=[0,21)   // "【w:0】hile"
-└─ WhileStatement  pos=0  src=[0,20)   // "while【␣:5】(a) {" -> llm "a) {【b:12】reak;"
+└─ WhileStatement  pos=0  src=[0,20)   // "while【␣:5】(a) {"
    ├─ Identifier  pos=7  src=[7,8)  text="a"   // "while (a【):8】{ break"
-   └─ Block  pos=9  src=[10,20)   // "(a)【{:10】break" -> llm "(a) {【␣:11】break"
+   └─ Block  pos=9  src=[10,20)   // "(a)【{:10】break"
       └─ BreakStatement  pos=11  src=[12,18)   // "break【;:17】}"

@@ -7,8 +7,8 @@ let x = 0xff
 ```
 
 SourceFile  pos=0  src=[0,13)   // "【l:0】et x"
-└─ FirstStatement  pos=0  src=[0,12)   // "let x【␣:5】= 0xff" -> llm "let x =【␣:7】0xff"
-   └─ VariableDeclarationList  pos=0  src=[0,12)   // "let x【␣:5】= 0xff" -> llm "let x =【␣:7】0xff"
-      └─ VariableDeclaration  pos=3  src=[4,12)   // "let x【␣:5】= 0xff" -> llm "let x =【␣:7】0xff"
+└─ FirstStatement  pos=0  src=[0,12)   // "let x【␣:5】= 0xff"
+   └─ VariableDeclarationList  pos=0  src=[0,12)   // "let x【␣:5】= 0xff"
+      └─ VariableDeclaration  pos=3  src=[4,12)   // "let x【␣:5】= 0xff"
          ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【␣:5】= 0xff"
          └─ FirstLiteralToken  pos=7  src=[8,12)  text="0xff"   // "0xff【⏎:12】"

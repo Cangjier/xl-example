@@ -7,11 +7,11 @@ try { a; } catch { b; }
 ```
 
 SourceFile  pos=0  src=[0,24)   // "【t:0】ry {"
-└─ TryStatement  pos=0  src=[0,23)   // "try【␣:3】{ a;" -> llm "catch【␣:16】{ b;"
-   ├─ Block  pos=3  src=[4,10)   // "try【{:4】a; }" -> llm "a; }【␣:10】catch"
-   │  └─ ExpressionStatement  pos=5  src=[6,8)   // "try { a【;:7】} catch" -> llm "{ a;【␣:8】} catch"
+└─ TryStatement  pos=0  src=[0,23)   // "try【␣:3】{ a;"
+   ├─ Block  pos=3  src=[4,10)   // "try【{:4】a; }"
+   │  └─ ExpressionStatement  pos=5  src=[6,8)   // "try { a【;:7】} catch"
    │     └─ Identifier  pos=5  src=[6,7)  text="a"   // "try { a【;:7】} catch"
    └─ CatchClause  pos=10  src=[11,23)   // "catch【␣:16】{ b;"
-      └─ Block  pos=16  src=[17,23)   // "catch【{:17】b; }" -> llm "b; }【⏎:23】"
-         └─ ExpressionStatement  pos=18  src=[19,21)   // "catch { b【;:20】}" -> llm "{ b;【␣:21】}"
+      └─ Block  pos=16  src=[17,23)   // "catch【{:17】b; }"
+         └─ ExpressionStatement  pos=18  src=[19,21)   // "catch { b【;:20】}"
             └─ Identifier  pos=18  src=[19,20)  text="b"   // "catch { b【;:20】}"

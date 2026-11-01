@@ -7,10 +7,10 @@ if (a) b + c;
 ```
 
 SourceFile  pos=0  src=[0,14)   // "【i:0】f (a)"
-└─ IfStatement  pos=0  src=[0,13)   // "if【␣:2】(a) b" -> llm "b + c【;:12】"
-   ├─ Identifier  pos=4  src=[4,5)  text="a"   // "if (a【):5】b +" -> llm "if (a)【␣:6】b + c"
-   └─ ExpressionStatement  pos=6  src=[7,13)   // "(a) b【␣:8】+ c;" -> llm "b + c【;:12】"
-      └─ BinaryExpression  pos=6  src=[7,12)   // ") b +【␣:10】c;" -> llm "b + c【;:12】"
+└─ IfStatement  pos=0  src=[0,13)   // "if【␣:2】(a) b"
+   ├─ Identifier  pos=4  src=[4,5)  text="a"   // "if (a【):5】b +"
+   └─ ExpressionStatement  pos=6  src=[7,13)   // "(a) b【␣:8】+ c;"
+      └─ BinaryExpression  pos=6  src=[7,12)   // ") b +【␣:10】c;"
          ├─ Identifier  pos=6  src=[7,8)  text="b"   // "(a) b【␣:8】+ c;"
          ├─ PlusToken  pos=8  src=[9,10)  text="+"   // ") b +【␣:10】c;"
          └─ Identifier  pos=10  src=[11,12)  text="c"   // "b + c【;:12】"
