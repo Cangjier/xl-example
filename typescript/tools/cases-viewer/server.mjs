@@ -10,6 +10,10 @@
 //   .../<名字>.ast   ts-ast-line 快照；不存在时按需实时计算（不写盘）
 //   .../<名字>.md    逐字符 token 树快照；不存在时按需从 build/ts 实时生成（不写盘）
 //
+// 数据全部按请求现读：用例清单、.ts/.ast/.infer/.md 每次都重新读盘，`build/ts` 派生的东西
+// （逐字 token 树、created at）走 fresh-build.mjs 的子进程通道。所以改完一个用例、重新构建之后
+// 刷新页面就能看到，不需要重启这个服务。
+//
 // 所有读取接口都不改仓库；只有 POST /api/write-docs 会把 .md/.ast 写回用例目录。
 import fs from "node:fs";
 import path from "node:path";
@@ -17,8 +21,8 @@ import http from "node:http";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseToAstLine } from "../ts-ast-line.mjs";
-import { traceSteps, renderMarkdown } from "../gen-case-docs.mjs";
-import { parserAvailable, traceActual } from "../shape-actual.mjs";
+import { buildStamp, newestBuildMtime, runInFreshProcess } from "../fresh-build.mjs";
+import { traceActual } from "../shape-actual.mjs";
 import { parseStepsFromMarkdown } from "./md-steps.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -177,7 +181,15 @@ function buildInfo() {
       mtime = null;
     }
   }
-  return { available, mtime, path: toPosix(path.relative(ROOT, BUILD)) };
+  // `stamp` 是整棵 build/ts 的指纹（改过任何一个文件都会变），`newestMtime` 是这次构建的最新时间：
+  // 页面据此判断「构建变了」——入口文件的 mtime 只能代表那一个文件。
+  return {
+    available,
+    mtime,
+    newestMtime: available ? newestBuildMtime() : null,
+    stamp: available ? buildStamp() : "",
+    path: toPosix(path.relative(ROOT, BUILD)),
+  };
 }
 
 function readDocs() {
@@ -215,7 +227,8 @@ function loadCase(cases, id) {
 }
 
 function makeStepsFromSource(source, fileName) {
-  const steps = traceSteps(source, fileName);
+  // 逐字树只能从 build/ts 现推：走子进程通道，重建之后这里读到的就是新实现，不必重启服务。
+  const steps = runInFreshProcess({ job: "steps", source, name: fileName }).steps;
   return steps.map((step) => {
     // traceSteps 的 quoted 是 JSON.stringify 过的（`"a"`）；case.md 解析路径给出的是裸字符，
     // 统一成裸字符，前端好统一显示。
@@ -291,10 +304,12 @@ function casePayload(item, build) {
     }
   }
   // 有 .infer 时顺便算一遍 shape token 的 created at（build/ts），供 case.ast 页逐行对拍。
+  // traceActual 自己会判断本进程看到的 build/ts 是否已经过时（重建过就改走子进程），所以这里
+  // 不需要缓存、也不需要重启。
   let creation = null;
   let revisions = null;
   let creationError = null;
-  if (inferText !== null && parserAvailable()) {
+  if (inferText !== null && build.available) {
     try {
       const actual = traceActual(payload.ts, item.name);
       creation = {};
@@ -614,7 +629,8 @@ async function handle(req, res) {
     try {
       const absolute = path.join(CASES, item.rel);
       const source = fs.readFileSync(absolute, "utf8");
-      const md = renderMarkdown(source, item.name);
+      // 写回的是「当前 build/ts 推出来的」逐字树：同样走子进程，重建后不必重启。
+      const md = runInFreshProcess({ job: "markdown", source, name: item.name }).markdown;
       const ast = parseToAstLine(source, item.name) + "\n";
       const mdPath = absolute.replace(/\.ts$/, ".md");
       const astPath = absolute.replace(/\.ts$/, ".ast");
@@ -623,7 +639,7 @@ async function handle(req, res) {
       sendJson(res, 200, {
         ok: true,
         written: [toPosix(path.relative(ROOT, mdPath)), toPosix(path.relative(ROOT, astPath))],
-        case: casePayload(loadCase(scanCases(), item.id) ?? item, build),
+        case: casePayload(loadCase(scanCases(), item.id) ?? item, buildInfo()),
       });
     } catch (error) {
       sendJson(res, 500, { error: errorMessage(error) });

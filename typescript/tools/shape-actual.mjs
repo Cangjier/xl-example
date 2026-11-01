@@ -1,17 +1,33 @@
 // 形状树的「实际创建位置」：用 build/ts 逐字符推进，记录每个节点第一次出现在树里的那一格。
 //
-// case-infer.mjs（对照 .infer）和 cases-viewer（case.ast 页标注）共用这一份，
-// 免得两边对「节点身份」和「TS 区间别名」各写一套。
-import fs from "node:fs";
+// case-infer.mjs（对照 .infer）、cases-viewer（case.ast 页标注）和 case_fix 的验收共用这一份，
+// 免得几边对「节点身份」和「TS 区间别名」各写一套。
+//
+// 两条通道，按「本进程里的模块还能不能代表磁盘」选：
+// - 进程内（`channel: "process"`）：快，但用的是本进程 require 过的 build/ts 模块。
+//   宿主进程（DSH 插件宿主）会把这些模块一直留在内存里，删 `require.cache` 也换不回新实现：
+//   于是 `npm run build` 之后对拍量到的仍是旧代码，而磁盘、门禁、新起的 node 都是新的。
+// - 子进程（`channel: "child"`）：经 fresh-build.mjs 起一个新的 node 读 build/ts，读到的永远是
+//   磁盘上的当前实现，代价约 150ms。所以只要「本进程载入之后 build/ts 变过」（指纹不同）或
+//   调用方明确说 `fresh: true`（刚重建过，什么都别信），就走这一条。这是「对拍读到旧实现」的兜底。
+//
+// 调用方不需要关心走的是哪条：两者返回同一个形状（`map` / `created` 是 Map，`final` 是数组），
+// 额外带一个 `channel` 字段说明这次是谁量的。
 import path from "node:path";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import {
+  BUILD,
+  BUILD_ENTRY,
+  ROOT,
+  buildStamp,
+  newestBuildMtime,
+  parserAvailable,
+  runInFreshProcess,
+} from "./fresh-build.mjs";
 
 const require = createRequire(import.meta.url);
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, "..", "..");
-const BUILD = path.join(ROOT, "build", "ts");
-const BUILD_ENTRY = path.join(BUILD, "typescript", "shapes", "files", "source-file-shape.js");
+
+export { BUILD, BUILD_ENTRY, ROOT, buildStamp, newestBuildMtime, parserAvailable };
 
 // TS 的 SyntaxKind 里有些名字是区间别名（FirstLiteralToken 之类），ts-ast-line 打出来的是别名，
 // 形状侧用的是区间首项的名字。和 run.mjs 的对拍表保持一致。
@@ -38,25 +54,43 @@ export const TS_KIND_ALIASES = new Map([
 
 export const canonicalKind = (kind) => TS_KIND_ALIASES.get(kind) ?? kind;
 
-export function parserAvailable() {
-  return fs.existsSync(BUILD_ENTRY);
-}
+/** 本进程载入的解析器模块；`null` = 还没载入。 */
+let loaded = null;
+
+/** 载入那一刻 `build/ts` 的指纹。当前指纹与它不同，就说明本进程里的模块已经落后于磁盘。 */
+let loadedStamp = null;
 
 function loadParser() {
+  if (loaded !== null) {
+    return loaded;
+  }
   if (!parserAvailable()) {
     throw new Error(`缺少 ${path.relative(ROOT, BUILD)}：先跑 npm run build`);
   }
-  const { SyntaxContext } = require(path.join(BUILD, "core/syntax/syntax-context.js"));
-  const { SourceRange } = require(path.join(BUILD, "core/syntax/source-range.js"));
-  const { TextDocument } = require(path.join(BUILD, "typescript/run/text-document.js"));
-  const { TypescriptTemplate } = require(path.join(BUILD, "typescript/run/typescript-template.js"));
-  const { SourceFileShape } = require(path.join(BUILD, "typescript/shapes/files/source-file-shape.js"));
-  return { SyntaxContext, SourceRange, TextDocument, TypescriptTemplate, SourceFileShape };
+  // 指纹取在 require 之前：万一读盘与载入之间正好被重建，下一次对拍会判成「变过」而改走子进程，
+  // 不会把旧模块当成新的。
+  loadedStamp = buildStamp();
+  loaded = {
+    SyntaxContext: require(path.join(BUILD, "core/syntax/syntax-context.js")).SyntaxContext,
+    SourceRange: require(path.join(BUILD, "core/syntax/source-range.js")).SourceRange,
+    TextDocument: require(path.join(BUILD, "typescript/run/text-document.js")).TextDocument,
+    TypescriptTemplate: require(path.join(BUILD, "typescript/run/typescript-template.js")).TypescriptTemplate,
+    SourceFileShape: require(path.join(BUILD, "typescript/shapes/files/source-file-shape.js")).SourceFileShape,
+  };
+  return loaded;
+}
+
+/** 本进程里的解析器模块是否已经落后于磁盘。还没载入过就不算落后：首次载入读到的一定是当前实现。 */
+export function inProcessStale() {
+  if (loaded === null) {
+    return false;
+  }
+  return buildStamp() !== loadedStamp;
 }
 
 /** 把 build/ts 下的模块从 require 缓存里清掉，返回清掉的个数。
- *  同一个进程里重建之后必须清一次：require 按路径缓存，不清就一直读旧实现。
- *  只清 build/ts 这一棵子树，node_modules 里的 typescript 与其它工具不受影响。 */
+ *  注意：这只在「`require.cache` 就是加载器那份注册表」的进程里有效；DSH 插件宿主里删不动，
+ *  对拍因此不再依赖它（见文件头的两条通道）。留给同一进程里重建的调试脚本。 */
 export function clearBuildCache() {
   let cleared = 0;
   for (const key of Object.keys(require.cache)) {
@@ -98,16 +132,8 @@ function collect(node, depth, isLast, out) {
   return out;
 }
 
-/** 返回 { map, created, final }；key = kind|pos|src 起点，与 .ast / .infer 行用同一套。
- *  map 是「首次出现在树里」的那一格；created 优先取 CreatedRevisionAt（修订后的创建位置），
- *  没有修订才取 ShapeToken.CreatedAt（实际建出形状的那一格），都没有记 null；final 是最终树。
- *
- *  `options.fresh === true` 时先清 build/ts 的 require 缓存再读实现：插件在同一个进程里
- *  重建之后要用新实现，否则一直读到旧模块。 */
-export function traceActual(source, name, options = {}) {
-  if (options.fresh === true) {
-    clearBuildCache();
-  }
+/** 进程内通道：用本进程 require 过的 build/ts 逐字符推进。子进程一侧也调这一个。 */
+export function traceActualInProcess(source, name) {
   const parser = loadParser();
   const template = parser.TypescriptTemplate.Create();
   const root = new parser.SourceFileShape(template);
@@ -137,5 +163,28 @@ export function traceActual(source, name, options = {}) {
       : rec.createdAt >= 0 ? rec.createdAt : null;
     created.set(rec.key, at);
   }
-  return { map, created, final };
+  return { map, created, final, channel: "process" };
+}
+
+/** 子进程通道：经 fresh-build.mjs 起一个新的 node 读 build/ts，不受本进程模块缓存影响。 */
+export function traceActualIsolated(source, name) {
+  const parsed = runInFreshProcess({ job: "actual", source, name });
+  return {
+    map: new Map(parsed.map),
+    created: new Map(parsed.created),
+    final: parsed.final,
+    channel: "child",
+  };
+}
+
+/** 返回 { map, created, final, channel }；key = kind|pos|src 起点，与 .ast / .infer 行用同一套。
+ *  map 是「首次出现在树里」的那一格；created 优先取 CreatedRevisionAt（修订后的创建位置），
+ *  没有修订才取 ShapeToken.CreatedAt（实际建出形状的那一格），都没有记 null；final 是最终树。
+ *
+ *  `options.fresh === true`：调用方刚重建过，必须走子进程读磁盘上的当前实现。 */
+export function traceActual(source, name, options = {}) {
+  if (options.fresh === true || inProcessStale()) {
+    return traceActualIsolated(source, name);
+  }
+  return traceActualInProcess(source, name);
 }

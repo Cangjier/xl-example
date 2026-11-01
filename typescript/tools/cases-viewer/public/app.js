@@ -826,7 +826,7 @@ function renderSidebarFoot() {
     : 0;
   els.sidebarFoot.innerHTML = [
     `<div class="row"><i class="status-dot ${build.available ? "ok" : "warn"}"></i>` +
-    `<span>build/ts ${build.available ? "可用" : "缺失"}（${build.available ? "缺 case.md 时可实时生成" : "只能看已有 case.md"}）</span></div>`,
+    `<span>build/ts ${build.available ? "可用" : "缺失"}（${build.available ? `构建于 ${build.newestMtime ? new Date(build.newestMtime).toLocaleString() : "未知时间"}，缺 case.md 时可实时生成` : "只能看已有 case.md"}）</span></div>`,
     `<div class="row"><i class="status-dot ${state.checkedAt > 0 ? (ok === state.index.stats.total ? "ok" : "warn") : ""}"></i>` +
     `<span>${state.checkedAt > 0 ? `对拍 ${ok} / ${state.index.stats.total} 通过` : "尚未对拍"}</span></div>`,
   ].join("");

@@ -38,6 +38,18 @@ node typescript/tools/cases-viewer/server.mjs --help
 `.ast` 缺失时按 `ts-ast-line` 现场计算；存在但与当前输出不一致时，徽章会标「过期」，
 `case.ast` 页给出差异入口——这和 `run.mjs` 的 `stale-ast` 检查是同一件事。
 
+## 改完用例不用重启
+
+所有数据都是按请求现读的：用例清单、`.ts` / `.ast` / `.infer` / `.md` 每次重新读盘；
+`build/ts` 派生的东西（逐字 token 树、`created at`）走 `typescript/tools/fresh-build.mjs`
+的**子进程通道**——每次起一个新的 node 读磁盘上的当前实现。所以改完形状重新构建之后，
+**刷新页面就是最新的**，不需要重启这个服务（以前它把 `build/ts` 的模块 require 在进程里，
+重建之后只有重启才能换掉，这一点已修）。
+
+左栏底部会显示 `build/ts` 的构建时间（`build/ts` 里最新那个文件的 mtime）：它变了，就说明
+这次刷新看到的是新构建的产物。`/api/index` 里的 `build.stamp` 是整棵 `build/ts` 的指纹，
+`build.newestMtime` 是那个时间，给外部脚本判断「构建变了」用。
+
 ## case.infer
 
 `<名字>.infer` 与 `.ts` 并列，位置写在行末上下文的 `【字符:N】` 里：字符是该格上的字符

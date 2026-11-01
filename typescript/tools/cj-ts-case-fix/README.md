@@ -152,6 +152,22 @@ pass                 以上都没有
 
 两条都没有就**报错**，不静默跳过：跳过构建 = 对拍永远看旧实现，验收会骗人。
 
+## 对拍通道
+
+对拍（`shape-actual.mjs`）有两条通道，按「本进程里的模块还能不能代表磁盘」选：
+
+| 通道 | 什么时候走 | 代价 |
+| --- | --- | --- |
+| 进程内 `channel: "process"` | 本进程载入 `build/ts` 之后磁盘没变过 | 毫秒级 |
+| 子进程 `channel: "child"` | 调用方给了 `fresh: true`（`case_fix` 的对拍一直给），或本进程载入之后 `build/ts` 变过 | 约 150ms |
+
+子进程通道是**兜底**：宿主进程会把自己 `require` 过的 `build/ts` 模块一直留在内存里，删
+`require.cache` 在 DSH 插件宿主里也换不回来——于是构建成功、门禁全绿，验收却一直量旧实现
+（2026-11-01 在 `alias-conditional-infer` 上真撞到过）。子进程每次都新起一个 `node` 读磁盘上的
+当前实现，因此 `case_fix` 的读数不再受宿主缓存影响；`freshness` 由 `build/ts` 整棵树的
+`路径 + 大小 + mtime` 指纹判定，构造上只会偏保守（宁可起子进程），不会把旧模块当成新的。
+回归测试见 `tests/measure-channel.test.mjs`。
+
 ## 实测（2026-11-01，装成插件后在 DSH 里跑）
 
 ```text
@@ -187,7 +203,10 @@ dsh_plugins install C:/Users/Admin/Documents/GitHub/xl-example/typescript/tools/
 
 装好后工具名 `case_fix`。插件依赖仓库里的 `typescript/tools/case-infer.mjs`、
 `shape-actual.mjs`、`typescript/cases/tts/run.mjs`，以及跑过一次 `npm run build`
-（`build/ts` 存在）。改完插件代码不用重启 DSH：`dsh_plugins disable` + `enable` 同一个 bundle。
+（`build/ts` 存在）。改完插件自己的代码不用重启 DSH：`dsh_plugins disable` + `enable` 同一个
+bundle。改到 `shape-actual.mjs` 这类**共享模块**或 `build/ts` 时不行——已载入的模块实例在宿主进程
+里换不掉（对拍本身现在走子进程，不受影响；但插件自己 import 的那份 `shape-actual.mjs` 仍是旧实例），
+需要重启宿主才彻底生效。
 
 审查优先用已注册的 `code_review`（`cj-ts-code-review` 插件）；重新判定优先用已注册的
 `case_infer`（`cj-ts-case-infer` 插件）。两者都没装也能跑——插件会 import 仓库里的同一份实现，
