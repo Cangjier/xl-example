@@ -6,12 +6,12 @@ let x = 2**3
 [0-12] |let x = 2**3⏎|
 ```
 
-SourceFile  pos=0  src=[0,13)   // "【x:0】et x"
-└─ FirstStatement  pos=0  src=[0,12)   // "let x【x:5】= 2**" -> llm "let x【x:6】2**3"
-   └─ VariableDeclarationList  pos=0  src=[0,12)   // "let x【x:5】= 2**" -> llm "let x【x:6】2**3"
-      └─ VariableDeclaration  pos=3  src=[4,12)   // "let x【x:5】= 2**" -> llm "let x【x:6】2**3"
-         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【x:5】= 2**"
-         └─ BinaryExpression  pos=7  src=[8,12)   // "= 2**【x:11】"
-            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="2"   // "x = 2【x:9】*3"
-            ├─ AsteriskAsteriskToken  pos=9  src=[9,11)  text="**"   // "= 2**【x:11】"
-            └─ FirstLiteralToken  pos=11  src=[11,12)  text="3"   // "2**3【x:12】"
+SourceFile  pos=0  src=[0,13)   // "【l:0】et x"
+└─ FirstStatement  pos=0  src=[0,12)   // "let x【␣:5】= 2**" -> llm "let x【=:6】2**3"
+   └─ VariableDeclarationList  pos=0  src=[0,12)   // "let x【␣:5】= 2**" -> llm "let x【=:6】2**3"
+      └─ VariableDeclaration  pos=3  src=[4,12)   // "let x【␣:5】= 2**" -> llm "let x【=:6】2**3"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【␣:5】= 2**"
+         └─ BinaryExpression  pos=7  src=[8,12)   // "= 2**【3:11】"
+            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="2"   // "x = 2【*:9】*3"
+            ├─ AsteriskAsteriskToken  pos=9  src=[9,11)  text="**"   // "= 2**【3:11】"
+            └─ FirstLiteralToken  pos=11  src=[11,12)  text="3"   // "2**3【⏎:12】"

@@ -6,10 +6,10 @@ if (a) b; c;
 [0-12] |if (a) b; c;⏎|
 ```
 
-SourceFile  pos=0  src=[0,13)   // "【x:0】f (a)"
-├─ IfStatement  pos=0  src=[0,9)   // "if【x:2】(a) b" -> llm "(a) b【x:8】c;"
-│  ├─ Identifier  pos=4  src=[4,5)  text="a"   // "if (a【x:5】b; c"
-│  └─ ExpressionStatement  pos=6  src=[7,9)   // "(a) b【x:8】c;"
-│     └─ Identifier  pos=6  src=[7,8)  text="b"   // "(a) b【x:8】c;"
-└─ ExpressionStatement  pos=9  src=[10,12)   // "b; c【x:11】"
-   └─ Identifier  pos=9  src=[10,11)  text="c"   // "b; c【x:11】"
+SourceFile  pos=0  src=[0,13)   // "【i:0】f (a)"
+├─ IfStatement  pos=0  src=[0,9)   // "if【␣:2】(a) b" -> llm "(a) b【;:8】c;"
+│  ├─ Identifier  pos=4  src=[4,5)  text="a"   // "if (a【):5】b; c"
+│  └─ ExpressionStatement  pos=6  src=[7,9)   // "(a) b【;:8】c;"
+│     └─ Identifier  pos=6  src=[7,8)  text="b"   // "(a) b【;:8】c;"
+└─ ExpressionStatement  pos=9  src=[10,12)   // "b; c【;:11】"
+   └─ Identifier  pos=9  src=[10,11)  text="c"   // "b; c【;:11】"

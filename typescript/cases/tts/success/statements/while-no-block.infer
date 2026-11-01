@@ -6,8 +6,8 @@ while (a) b;
 [0-12] |while (a) b;⏎|
 ```
 
-SourceFile  pos=0  src=[0,13)   // "【x:0】hile"
-└─ WhileStatement  pos=0  src=[0,12)   // "while【x:5】(a) b" -> llm "while【x:6】a) b;"
-   ├─ Identifier  pos=7  src=[7,8)  text="a"   // "while (a【x:8】b;"
-   └─ ExpressionStatement  pos=9  src=[10,12)   // "(a) b【x:11】" -> llm "a) b;【x:12】"
-      └─ Identifier  pos=9  src=[10,11)  text="b"   // "(a) b【x:11】"
+SourceFile  pos=0  src=[0,13)   // "【w:0】hile"
+└─ WhileStatement  pos=0  src=[0,12)   // "while【␣:5】(a) b" -> llm "while【(:6】a) b;"
+   ├─ Identifier  pos=7  src=[7,8)  text="a"   // "while (a【):8】b;"
+   └─ ExpressionStatement  pos=9  src=[10,12)   // "(a) b【;:11】" -> llm "a) b;【⏎:12】"
+      └─ Identifier  pos=9  src=[10,11)  text="b"   // "(a) b【;:11】"

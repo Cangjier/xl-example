@@ -6,5 +6,5 @@ debugger;
 [0-9] |debugger;⏎|
 ```
 
-SourceFile  pos=0  src=[0,10)   // "【x:0】ebugger" -> llm "debugger;【x:9】"
-└─ LastStatement  pos=0  src=[0,9)   // "debugger【x:8】"
+SourceFile  pos=0  src=[0,10)   // "【d:0】ebugger" -> llm "debugger;【⏎:9】"
+└─ LastStatement  pos=0  src=[0,9)   // "debugger【;:8】"

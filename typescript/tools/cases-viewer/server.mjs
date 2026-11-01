@@ -292,13 +292,21 @@ function casePayload(item, build) {
   }
   // 有 .infer 时顺便算一遍 shape token 的 created at（build/ts），供 case.ast 页逐行对拍。
   let creation = null;
+  let revisions = null;
   let creationError = null;
   if (inferText !== null && parserAvailable()) {
     try {
       const actual = traceActual(payload.ts, item.name);
       creation = {};
+      revisions = {};
       for (const [key, char] of actual.created) {
         creation[key] = char;
+      }
+      // CreatedAt 比 CreatedRevisionAt 晚 ⇒ 这颗形状本该在能确定的那一格增量建出来，却没有。
+      for (const rec of actual.final) {
+        if (rec.createdRevisionAt >= 0 && rec.createdAt > rec.createdRevisionAt) {
+          revisions[rec.key] = { created: rec.createdAt, revision: rec.createdRevisionAt };
+        }
       }
     } catch (error) {
       creationError = errorMessage(error);
@@ -306,7 +314,7 @@ function casePayload(item, build) {
   }
   payload.infer = inferText === null
     ? null
-    : { text: inferText, origin: "fixture", error: inferError, creation, creationError };
+    : { text: inferText, origin: "fixture", error: inferError, creation, revisions, creationError };
 
   // case.md：文件在就用它的逐字快照；不在就从 build/ts 实时推进（不写盘）。
   let mdText = null;

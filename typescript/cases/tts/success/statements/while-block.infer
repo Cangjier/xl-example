@@ -6,9 +6,9 @@ while (a) { b; }
 [0-16] |while (a) { b; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,17)   // "【x:0】hile"
-└─ WhileStatement  pos=0  src=[0,16)   // "while【x:5】(a) {" -> llm "while (a【x:8】{ b;"
-   ├─ Identifier  pos=7  src=[7,8)  text="a"   // "while (a【x:8】{ b;"
-   └─ Block  pos=9  src=[10,16)   // "(a)【x:10】b; }" -> llm "b; }【x:16】"
-      └─ ExpressionStatement  pos=11  src=[12,14)   // ") { b【x:13】}"
-         └─ Identifier  pos=11  src=[12,13)  text="b"   // ") { b【x:13】}"
+SourceFile  pos=0  src=[0,17)   // "【w:0】hile"
+└─ WhileStatement  pos=0  src=[0,16)   // "while【␣:5】(a) {" -> llm "while (a【):8】{ b;"
+   ├─ Identifier  pos=7  src=[7,8)  text="a"   // "while (a【):8】{ b;"
+   └─ Block  pos=9  src=[10,16)   // "(a)【{:10】b; }" -> llm "b; }【⏎:16】"
+      └─ ExpressionStatement  pos=11  src=[12,14)   // ") { b【;:13】}"
+         └─ Identifier  pos=11  src=[12,13)  text="b"   // ") { b【;:13】}"

@@ -40,10 +40,11 @@ node typescript/tools/cases-viewer/server.mjs --help
 
 ## case.infer
 
-`<名字>.infer` 与 `.ts` 并列，位置写在行末上下文的 `【x:N】` 里：
-`// "…【x:5】…"` 表示两个位置相同；`// "…【x:8】…" -> llm "…【x:5】…"` 表示 LLM 判定的位置不同。
-`【x:8】` 是 shape token 建出这颗形状的那一格（`ShapeToken.CreatedAt`，没有就整行写 `?`），
-箭头后的 `【x:5】` 是 LLM 按语法逻辑判定的「最早能确定」位置；上下文是标记位置前后各至少 5 个字符。
+`<名字>.infer` 与 `.ts` 并列，位置写在行末上下文的 `【字符:N】` 里：字符是该格上的字符
+（空格写 `␣`、换行写 `⏎`、EOF 写 `␃`），N 是字符号。
+`// "…【␣:5】…"` 表示两个位置相同；`// "…【1:8】…" -> llm "…【␣:5】…"` 表示 LLM 判定的位置不同。
+`【1:8】` 是 shape token 建出这颗形状的那一格（`ShapeToken.CreatedAt` / 修订位置，没有就整行写 `?`），
+箭头后的 `【␣:5】` 是 LLM 按语法逻辑判定的「最早能确定」位置；上下文是标记位置前后各至少 5 个字符。
 开头是用 `ts` 围栏包住的用例源码与逐字编号。
 
 存在时：左侧列表多一个蓝点、标题多一个 `case.infer` 徽章、`case.ast` 页按节点身份
@@ -57,6 +58,11 @@ node typescript/tools/cases-viewer/server.mjs --help
 | `?` | `llm determined` 还是 `?`，没判定 |
 | `created ?` | shape token 还没记 `CreatedAt`，无法对拍 |
 | `never` | 树里始终没有这个节点 |
+| `未增量` | `CreatedAt` 比 `CreatedRevisionAt` 晚：这颗形状没有在「能确定」的那一格增量建出来 |
+
+`未增量` 是解析器侧的警告，与 LLM 判定无关：`CreatedRevisionAt` 记的是 end 时才拿得到的「本该建在这一格」
+的位置（例如头部 `TypeParameter` 的名字第一格 7），`CreatedAt` 是实际建出形状的格（表收口那一格 8）。
+`created at > revision` 就说明增量创建没有做到这一格；页头会给出 `未增量 N` 的计数，行末也有单独的标记。
 
 实际值由 `build/ts` 现算（`typescript/tools/shape-actual.mjs`，和 `case-infer --check` 共用同一份身份规则与
 TS 区间别名表）。页头写「infer 注记 N 个，一致 M」，上方通知条给出 `late/early/unfilled/created ?/never` 的计数；

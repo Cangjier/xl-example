@@ -6,10 +6,10 @@ type A = { a: string }
 [0-19]  |type A = { a: string| [20-22] | }⏎|
 ```
 
-SourceFile  pos=0  src=[0,23)   // "【x:0】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,22)   // "type A【x:6】= { a" -> llm "string【x:20】}"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】= { a"
-   └─ TypeLiteral  pos=8  src=[9,22)   // ? -> llm "string }【x:22】"
-      └─ PropertySignature  pos=10  src=[11,20)   // ? -> llm "string【x:20】}"
-         ├─ Identifier  pos=10  src=[11,12)  text="a"   // ? -> llm "= { a【x:12】string"
-         └─ StringKeyword  pos=13  src=[14,20)  text="string"   // ? -> llm "string【x:20】}"
+SourceFile  pos=0  src=[0,23)   // "【t:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,22)   // "type A【␣:6】= { a" -> llm "string【␣:20】}"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【␣:6】= { a"
+   └─ TypeLiteral  pos=8  src=[9,22)   // ? -> llm "string }【⏎:22】"
+      └─ PropertySignature  pos=10  src=[11,20)   // ? -> llm "string【␣:20】}"
+         ├─ Identifier  pos=10  src=[11,12)  text="a"   // ? -> llm "= { a【::12】string"
+         └─ StringKeyword  pos=13  src=[14,20)  text="string"   // ? -> llm "string【␣:20】}"

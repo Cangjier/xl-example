@@ -6,9 +6,9 @@ let x = 1e3
 [0-11] |let x = 1e3⏎|
 ```
 
-SourceFile  pos=0  src=[0,12)   // "【x:0】et x"
-└─ FirstStatement  pos=0  src=[0,11)   // "let x【x:5】= 1e3" -> llm "= 1e【x:10】"
-   └─ VariableDeclarationList  pos=0  src=[0,11)   // "let x【x:5】= 1e3" -> llm "= 1e【x:10】"
-      └─ VariableDeclaration  pos=3  src=[4,11)   // "let x【x:5】= 1e3" -> llm "= 1e【x:10】"
-         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【x:5】= 1e3"
-         └─ FirstLiteralToken  pos=7  src=[8,11)  text="1e3"   // "= 1e3【x:11】"
+SourceFile  pos=0  src=[0,12)   // "【l:0】et x"
+└─ FirstStatement  pos=0  src=[0,11)   // "let x【␣:5】= 1e3" -> llm "= 1e【3:10】"
+   └─ VariableDeclarationList  pos=0  src=[0,11)   // "let x【␣:5】= 1e3" -> llm "= 1e【3:10】"
+      └─ VariableDeclaration  pos=3  src=[4,11)   // "let x【␣:5】= 1e3" -> llm "= 1e【3:10】"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【␣:5】= 1e3"
+         └─ FirstLiteralToken  pos=7  src=[8,11)  text="1e3"   // "= 1e3【⏎:11】"

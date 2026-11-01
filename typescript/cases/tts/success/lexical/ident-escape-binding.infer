@@ -6,9 +6,9 @@ let \u0061 = 1
 [0-14] |let \u0061 = 1⏎|
 ```
 
-SourceFile  pos=0  src=[0,15)   // "【x:0】et \\u0061"
-└─ FirstStatement  pos=0  src=[0,14)   // "u0061【x:10】= 1" -> llm "u0061 =【x:13】"
-   └─ VariableDeclarationList  pos=0  src=[0,14)   // "u0061【x:10】= 1" -> llm "u0061 =【x:13】"
-      └─ VariableDeclaration  pos=3  src=[4,14)   // "u0061【x:10】= 1" -> llm "u0061 =【x:13】"
-         ├─ Identifier  pos=3  src=[4,10)  text="\\u0061"   // "u0061【x:10】= 1"
-         └─ FirstLiteralToken  pos=12  src=[13,14)  text="1"   // "u0061 = 1【x:14】"
+SourceFile  pos=0  src=[0,15)   // "【l:0】et \\u0061"
+└─ FirstStatement  pos=0  src=[0,14)   // "u0061【␣:10】= 1" -> llm "u0061 =【1:13】"
+   └─ VariableDeclarationList  pos=0  src=[0,14)   // "u0061【␣:10】= 1" -> llm "u0061 =【1:13】"
+      └─ VariableDeclaration  pos=3  src=[4,14)   // "u0061【␣:10】= 1" -> llm "u0061 =【1:13】"
+         ├─ Identifier  pos=3  src=[4,10)  text="\\u0061"   // "u0061【␣:10】= 1"
+         └─ FirstLiteralToken  pos=12  src=[13,14)  text="1"   // "u0061 = 1【⏎:14】"

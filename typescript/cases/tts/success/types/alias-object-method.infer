@@ -6,13 +6,13 @@ type A = { m(a: string): void }
 [0-19]  |type A = { m(a: stri| [20-31] |ng): void }⏎|
 ```
 
-SourceFile  pos=0  src=[0,32)   // "【x:0】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,31)   // "type A【x:6】= { m" -> llm "void }【x:31】"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】= { m"
-   └─ TypeLiteral  pos=8  src=[9,31)   // ? -> llm "void }【x:31】"
-      └─ MethodSignature  pos=10  src=[11,29)   // ? -> llm "void }【x:31】"
-         ├─ Identifier  pos=10  src=[11,12)  text="m"   // ? -> llm "= { m【x:12】a: string"
-         ├─ Parameter  pos=13  src=[13,22)   // ? -> llm "string【x:22】: void"
-         │  ├─ Identifier  pos=13  src=[13,14)  text="a"   // ? -> llm "{ m(a【x:14】string"
-         │  └─ StringKeyword  pos=15  src=[16,22)  text="string"   // ? -> llm "string【x:22】: void"
-         └─ VoidKeyword  pos=24  src=[25,29)  text="void"   // ? -> llm "void【x:29】}"
+SourceFile  pos=0  src=[0,32)   // "【t:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,31)   // "type A【␣:6】= { m" -> llm "void }【⏎:31】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【␣:6】= { m"
+   └─ TypeLiteral  pos=8  src=[9,31)   // ? -> llm "void }【⏎:31】"
+      └─ MethodSignature  pos=10  src=[11,29)   // ? -> llm "void }【⏎:31】"
+         ├─ Identifier  pos=10  src=[11,12)  text="m"   // ? -> llm "= { m【(:12】a: string"
+         ├─ Parameter  pos=13  src=[13,22)   // ? -> llm "string【):22】: void"
+         │  ├─ Identifier  pos=13  src=[13,14)  text="a"   // ? -> llm "{ m(a【::14】string"
+         │  └─ StringKeyword  pos=15  src=[16,22)  text="string"   // ? -> llm "string【):22】: void"
+         └─ VoidKeyword  pos=24  src=[25,29)  text="void"   // ? -> llm "void【␣:29】}"

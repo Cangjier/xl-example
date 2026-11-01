@@ -402,8 +402,8 @@ function treeLineId(line) {
 }
 
 /** 把 xxx.infer 里的位置注记拆出来，按节点身份建索引。
- *  位置在 `【x:N】` 里：相同只有一个上下文，不同写成 `"…" -> llm "…"`，缺一侧写 `?`。 */
-const X_MARK = /【x:(\d+)】/;
+ *  位置在 `【字符:N】` 里：相同只有一个上下文，不同写成 `"…" -> llm "…"`，缺一侧写 `?`。 */
+const X_MARK = /【[^】]*:(\d+)】/;
 const positionIn = (context) => {
   const match = X_MARK.exec(context);
   return match === null ? null : Number(match[1]);
@@ -1170,15 +1170,17 @@ function renderAstPanel(payload, showGenerated = false) {
     ? parseInferNotes(payload.infer.text)
     : new Map();
   const creation = payload.infer && payload.infer.creation ? payload.infer.creation : null;
+  const revisions = payload.infer && payload.infer.revisions ? payload.infer.revisions : null;
   const lines = text === "" ? [""] : text.split("\n");
   const rows = lines.map((line) => {
     const id = treeLineId(line);
     const note = id === null ? undefined : inferNotes.get(id);
     if (note === undefined) {
-      return { line, note: undefined, status: null, actual: undefined };
+      return { line, note: undefined, status: null, actual: undefined, revision: null };
     }
     const actual = creation === null ? undefined : creation[id];
-    return { line, note, status: creation === null ? null : inferStatus(note.llm, actual), actual };
+    const revision = revisions === null || id === null ? null : (revisions[id] ?? null);
+    return { line, note, status: creation === null ? null : inferStatus(note.llm, actual), actual, revision };
   });
   const annotated = rows.filter((row) => row.note !== undefined);
   const judged = annotated.filter((row) => row.status !== null);
@@ -1187,27 +1189,32 @@ function renderAstPanel(payload, showGenerated = false) {
     counts[row.status.kind]++;
   }
   const bad = judged.length - counts.ok;
+  // CreatedAt > CreatedRevisionAt：这颗形状本该在能确定的那一格增量建出来，却没有。
+  const incremental = annotated.filter((row) => row.revision !== null).length;
 
   let inferNotice = "";
   if (annotated.length > 0 && creation === null) {
     inferNotice = `<div class="notice infer"><b><code>case.infer</code> 的两个位置：</b>
-      行末的 <code>【x:N】</code> 是 shape token 建出来的那一格；位置不同时再跟
-      <code>-> llm "…【x:M】…"</code>，M 是 LLM 按语法逻辑判的（不是解析器结果）。
+      行末的 <code>【字符:N】</code> 是 shape token 建出来的那一格（字符 + 字符号）；位置不同时再跟
+      <code>-> llm "…【字符:M】…"</code>，M 是 LLM 按语法逻辑判的（不是解析器结果）。
       这里没有 <code>build/ts</code> 的 created at，所以只显示注记，不能对拍。
       ${payload.infer.creationError ? `（${esc(payload.infer.creationError)}）` : ""}</div>`;
   } else if (annotated.length > 0 && judged.length === 0) {
     inferNotice = '<div class="notice infer">case.infer 里没有一行能和这份 .ast 对上（节点身份是 kind + pos + src 起点）。</div>';
-  } else if (judged.length > 0 && bad === 0) {
-    inferNotice = `<div class="notice ok"><b>infer 对拍：${judged.length} 个节点全部一致。</b>
-      llm determined 来自 <code>case.infer</code>，created at 来自 shape token（<code>build/ts</code>）。</div>`;
   } else if (judged.length > 0) {
-    inferNotice = `<div class="notice ${counts.late + counts.early > 0 ? "warn" : "infer"}"><b>infer 对拍：一致 ${counts.ok} / ${judged.length}，不一致 ${bad}。</b>
+    const warn = bad > 0 || incremental > 0;
+    const head = bad > 0
+      ? `infer 对拍：一致 ${counts.ok} / ${judged.length}，不一致 ${bad}。`
+      : `infer 对拍：${judged.length} 个节点全部一致。`;
+    inferNotice = `<div class="notice ${warn ? "warn" : "ok"}"><b>${head}</b>
       ${counts.late > 0 ? `<span class="chipstat late">late ${counts.late}</span>` : ""}
       ${counts.early > 0 ? `<span class="chipstat early">early ${counts.early}</span>` : ""}
       ${counts.unfilled > 0 ? `<span class="chipstat unfilled">unfilled ${counts.unfilled}</span>` : ""}
       ${counts.unknown > 0 ? `<span class="chipstat unknown">created ? ${counts.unknown}</span>` : ""}
       ${counts.never > 0 ? `<span class="chipstat never">never ${counts.never}</span>` : ""}
-      行末的标记是「llm determined vs created at」：<code>✓</code> 一致，<code>late +N</code> 模型判得比实际创建晚 N 格，<code>early -N</code> 早 N 格。</div>`;
+      ${incremental > 0 ? `<span class="chipstat incremental">未增量 ${incremental}</span>` : ""}
+      <div>行末的标记是「llm determined vs created at」：<code>✓</code> 一致，<code>late +N</code> 模型判得比实际创建晚 N 格，<code>early -N</code> 早 N 格。</div>
+      ${incremental > 0 ? `<div>⚠ <b>未增量</b>：<code>created at</code> 比 <code>CreatedRevisionAt</code> 晚——说明这颗形状没有在「能确定」的那一格增量建出来（见行末的 <code>未增量</code> 标记）。</div>` : ""}</div>`;
   }
 
   panel.innerHTML = `
@@ -1230,7 +1237,11 @@ function renderAstPanel(payload, showGenerated = false) {
       const chip = row.status === null
         ? ""
         : `<span class="infer-status ${row.status.kind}" title="${esc(row.status.title)}">${esc(row.status.label)}</span>`;
-      return `<span class="tree-line">${colorizeTreeLine(row.line)}<span class="infer-note">// ${esc(row.note.text)}</span>${chip}</span>`;
+      // created at > CreatedRevisionAt：形状没在能确定的那一格增量建出来。
+      const slow = row.revision === null
+        ? ""
+        : `<span class="infer-status incremental" title="created ${row.revision.created} > 修订位置 ${row.revision.revision}：没有增量创建（晚 ${row.revision.created - row.revision.revision} 格）">未增量</span>`;
+      return `<span class="tree-line">${colorizeTreeLine(row.line)}<span class="infer-note">// ${esc(row.note.text)}</span>${chip}${slow}</span>`;
     })
     .join("");
 

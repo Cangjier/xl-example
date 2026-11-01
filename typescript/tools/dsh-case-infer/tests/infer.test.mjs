@@ -13,6 +13,7 @@ import test from 'node:test'
 import { createInferTool } from '../src/tools/infer.mjs'
 import { normalizeConfig } from '../src/config.mjs'
 import { parseNumbers } from '../src/parse.mjs'
+import { formatInfer, parseNote } from '../../case-infer.mjs'
 import { parserAvailable } from '../../shape-actual.mjs'
 
 const SOURCE = 'type A<T> = T extends Array<infer U> ? U : never\n'
@@ -92,19 +93,19 @@ test('正确的模型输出：写盘 + 对拍', async (t) => {
   const text = fs.readFileSync(file.replace(/\.ts$/, '.infer'), 'utf8')
   assert.match(text, /^```ts$/m)
   assert.match(text, /^type A<T> = T extends Array<infer U> \? U : never$/m)
-  // 两个位置相同：只写一个上下文，位置在 【x:N】 里。
-  assert.match(text, /\/\/ "type A【x:6】T> ="/)
+  // 两个位置相同：只写一个上下文，位置在 【字符:N】 里。
+  assert.match(text, /\/\/ "type A【<:6】T> ="/)
   // 位置不同：再跟 `-> llm "…"`。头部 TypeParameter 实际建在 8（表收口），
   // 但 CreatedRevisionAt 记的是名字第一格 7，.infer 的 created 列优先用它。
   assert.match(
     text,
-    /\/\/ "type A<【x:7】> = T" -> llm "type A【x:6】T> ="/,
+    /\/\/ "type A<【T:7】> = T" -> llm "type A【<:6】T> ="/,
   )
   assert.equal(text.includes('-> llm ?'), false)
   // 根在第一个字符之前就存在：位置 0。
-  assert.match(text, /\/\/ "【x:0】ype A"/)
+  assert.match(text, /\/\/ "【t:0】ype A"/)
   // 这颗形状还没写 create 入口：created 侧记 ?，不是拿别的格冒充。
-  assert.match(text, /\/\/ \? -> llm "Array【x:27】infer"/)
+  assert.match(text, /\/\/ \? -> llm "Array【<:27】infer"/)
 
   // created at 来自 shape token：7 一致 / 4 early / 5 没有 CreatedAt
   // （根 SourceFile 记 0；头部 TypeParameter 的 created 取修订位置 7）
@@ -166,4 +167,19 @@ test('parseNumbers：缺节点 / 越界 / 多余节点都报出来', () => {
   ]), nodes, 10)
   assert.equal(extra.issues.length, 1)
   assert.match(extra.issues[0], /不在清单里/)
+})
+
+test('注记没有尾注这个语法槽：行末多余文字会被 --format 抹掉', () => {
+  // 旧版允许在注记末尾手写一句说明（如「（由 TypeParameterList 转换）」）。那不是格式的一部分：
+  // parseNote 只认位置，formatInfer 写回时把它丢掉。
+  const line = '└─ TypeParameter  pos=7  src=[7,8)   // "type A<【T:7】> = T" -> llm "type A【<:6】T> ="（由 TypeParameterList 转换）'
+  const note = parseNote(line.slice(line.indexOf('// ') + 3))
+  assert.deepEqual(note, { created: 7, llm: 6 })
+
+  const result = formatInfer(SOURCE, line)
+  assert.equal(result.changed, 1)
+  assert.equal(
+    result.text,
+    '└─ TypeParameter  pos=7  src=[7,8)   // "type A<【T:7】> = T" -> llm "type A【<:6】T> ="',
+  )
 })

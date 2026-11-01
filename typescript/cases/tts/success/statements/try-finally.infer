@@ -6,11 +6,11 @@ try { a; } finally { b; }
 [0-19]  |try { a; } finally {| [20-25] | b; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,26)   // "【x:0】ry {"
-└─ TryStatement  pos=0  src=[0,25)   // "try【x:3】{ a;" -> llm "finally【x:19】b; }"
-   ├─ Block  pos=3  src=[4,10)   // "try【x:4】a; }"
-   │  └─ ExpressionStatement  pos=5  src=[6,8)   // "try { a【x:7】} finally"
-   │     └─ Identifier  pos=5  src=[6,7)  text="a"   // "try { a【x:7】} finally" -> llm "try {【x:6】; } finally"
-   └─ Block  pos=18  src=[19,25)   // "finally【x:19】b; }"
-      └─ ExpressionStatement  pos=20  src=[21,23)   // "finally { b【x:22】}"
-         └─ Identifier  pos=20  src=[21,22)  text="b"   // "finally { b【x:22】}" -> llm "finally {【x:21】; }"
+SourceFile  pos=0  src=[0,26)   // "【t:0】ry {"
+└─ TryStatement  pos=0  src=[0,25)   // "try【␣:3】{ a;" -> llm "finally【{:19】b; }"
+   ├─ Block  pos=3  src=[4,10)   // "try【{:4】a; }"
+   │  └─ ExpressionStatement  pos=5  src=[6,8)   // "try { a【;:7】} finally"
+   │     └─ Identifier  pos=5  src=[6,7)  text="a"   // "try { a【;:7】} finally" -> llm "try {【a:6】; } finally"
+   └─ Block  pos=18  src=[19,25)   // "finally【{:19】b; }"
+      └─ ExpressionStatement  pos=20  src=[21,23)   // "finally { b【;:22】}"
+         └─ Identifier  pos=20  src=[21,22)  text="b"   // "finally { b【;:22】}" -> llm "finally {【b:21】; }"

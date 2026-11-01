@@ -6,9 +6,9 @@ let x = 42
 [0-10] |let x = 42⏎|
 ```
 
-SourceFile  pos=0  src=[0,11)   // "【x:0】et x"
-└─ FirstStatement  pos=0  src=[0,10)   // "let x【x:5】= 42"
-   └─ VariableDeclarationList  pos=0  src=[0,10)   // "let x【x:5】= 42"
-      └─ VariableDeclaration  pos=3  src=[4,10)   // "let x【x:5】= 42"
-         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【x:5】= 42"
-         └─ FirstLiteralToken  pos=7  src=[8,10)  text="42"   // "= 42【x:10】"
+SourceFile  pos=0  src=[0,11)   // "【l:0】et x"
+└─ FirstStatement  pos=0  src=[0,10)   // "let x【␣:5】= 42"
+   └─ VariableDeclarationList  pos=0  src=[0,10)   // "let x【␣:5】= 42"
+      └─ VariableDeclaration  pos=3  src=[4,10)   // "let x【␣:5】= 42"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【␣:5】= 42"
+         └─ FirstLiteralToken  pos=7  src=[8,10)  text="42"   // "= 42【⏎:10】"

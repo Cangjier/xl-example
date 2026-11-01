@@ -6,13 +6,13 @@ type A = [a: string, b: number]
 [0-19]  |type A = [a: string,| [20-31] | b: number]⏎|
 ```
 
-SourceFile  pos=0  src=[0,32)   // "【x:0】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,31)   // "type A【x:6】= [a:" -> llm "number【x:30】"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】= [a:"
-   └─ TupleType  pos=8  src=[9,31)   // ? -> llm "number【x:30】"
-      ├─ NamedTupleMember  pos=10  src=[10,19)   // ? -> llm "string【x:19】b: number"
-      │  ├─ Identifier  pos=10  src=[10,11)  text="a"   // ? -> llm "= [a【x:11】string"
-      │  └─ StringKeyword  pos=12  src=[13,19)  text="string"   // ? -> llm "string【x:19】b: number"
-      └─ NamedTupleMember  pos=20  src=[21,30)   // ? -> llm "number【x:30】"
-         ├─ Identifier  pos=20  src=[21,22)  text="b"   // ? -> llm "string, b【x:22】number"
-         └─ NumberKeyword  pos=23  src=[24,30)  text="number"   // ? -> llm "number【x:30】"
+SourceFile  pos=0  src=[0,32)   // "【t:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,31)   // "type A【␣:6】= [a:" -> llm "number【]:30】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【␣:6】= [a:"
+   └─ TupleType  pos=8  src=[9,31)   // ? -> llm "number【]:30】"
+      ├─ NamedTupleMember  pos=10  src=[10,19)   // ? -> llm "string【,:19】b: number"
+      │  ├─ Identifier  pos=10  src=[10,11)  text="a"   // ? -> llm "= [a【::11】string"
+      │  └─ StringKeyword  pos=12  src=[13,19)  text="string"   // ? -> llm "string【,:19】b: number"
+      └─ NamedTupleMember  pos=20  src=[21,30)   // ? -> llm "number【]:30】"
+         ├─ Identifier  pos=20  src=[21,22)  text="b"   // ? -> llm "string, b【::22】number"
+         └─ NumberKeyword  pos=23  src=[24,30)  text="number"   // ? -> llm "number【]:30】"
