@@ -45,6 +45,7 @@
     "tts:docs": "node ./typescript/tools/gen-case-docs.mjs",
     "infer": "node ./typescript/tools/case-infer.mjs",
     "infer:test": "node --test \"typescript/tools/dsh-case-infer/tests/*.test.mjs\"",
+    "review:test": "node --test \"typescript/tools/dsh-code-review/tests/*.test.mjs\"",
     "tts:impl": "node ./typescript/cases/tts-impl/run.mjs"
   },
   "devDependencies": {

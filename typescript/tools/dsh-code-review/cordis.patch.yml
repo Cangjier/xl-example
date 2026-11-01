@@ -1,0 +1,41 @@
+# dsh-code-review bundle patch.
+#
+# 只贡献一行：`code-review` Host 插件，注册 `code_review` 工具。
+# 需要 `tools` 服务；审查时另外需要宿主加载了 `llm` 与 `agentDefaultModel`
+# （任何正式 profile 都有）；不写 provider/model 就跟随界面上的默认模型。
+#
+# 规则文件是 `docs/IMPORTANCE.md`（用户独占，插件只读）：留空 `rulesPath` 就用它，
+# `root` 留空则从插件自身位置推（<repo>/typescript/tools/dsh-code-review/src 上四级）。
+- insert:
+    - id: code-review
+      name: 'dsh-code-review'
+      config:
+        # 仓库根目录；留空 = 从插件位置推（typescript/tools/dsh-code-review/src → 上四级）。
+        # root: 'C:/Users/Admin/Documents/GitHub/xl-example'
+
+        # 规则文件；相对 root。默认 docs/IMPORTANCE.md。
+        # rulesPath: docs/IMPORTANCE.md
+
+        # 留空 = 用宿主当前默认模型（agentDefaultModel.currentSelection()）。
+        # provider: deepseek-official
+        # model: deepseek-flash
+
+        # 一次调用的输出上限与超时；审查比生成更需要推理，所以不设 reasoningEffort。
+        maxTokens: 8192
+        timeoutMs: 120000
+
+        # 模型输出不合格时重试几次（0 = 不重试）。
+        retries: 1
+
+        # 审查范围与成本：最多几个文件、单文件字节上限、每次调用审几个文件、
+        # 每次调用正文的总字节上限（个数与字节两个上限一起用）。
+        maxFiles: 200
+        maxFileBytes: 24000
+        filesPerCall: 6
+        batchBytes: 48000
+
+        # 默认审哪些阶段（P0 禁止/必须、P1 约束、P2 质量、P3 说明）。
+        stages: [P0, P1, P2]
+
+        # 报告落盘位置；留空 = 只在返回值里给报告，不写文件。
+        # outPath: tmp/code-review.md
