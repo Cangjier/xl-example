@@ -58,6 +58,8 @@ import { Token } from "../../../core/syntax/token.xl.md"
 
 # class TypePredicateShape extends TypeShape
 
+## field TypeStart:int = -1
+
 # class MappedTypeShape extends TypeShape
 
 # class LiteralTypeShape extends TypeShape

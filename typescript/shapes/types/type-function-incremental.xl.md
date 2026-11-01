@@ -99,6 +99,18 @@ if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
 if (TypeConditionalUtil.IsBodyName(units, tokenIndex, cache)) {
   return ShapeStates.Reject;
 }
+// 正文第一个关键字类型同理，让位给 TypeAliasBodyKeywordPossibleShape。
+if (TypeConditionalUtil.IsBodyKeyword(units, tokenIndex, cache)) {
+  return ShapeStates.Reject;
+}
+// 数组后缀 `[]` 收口那一格让位给 TypeAliasArraySuffixPossibleShape。
+if (TypeConditionalUtil.IsPostfixArrayClose(units, tokenIndex, cache)) {
+  return ShapeStates.Reject;
+}
+// `|` / `&` 的成员收口那一格让位给 TypeAliasOperatorMemberPossibleShape。
+if (TypeConditionalUtil.IsOperatorMember(units, tokenIndex, cache)) {
+  return ShapeStates.Reject;
+}
 // 这两类是语句收口的 token，让给终结候选。
 if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
   return TypeParser.IsBalanced(units, tokenIndex) ? ShapeStates.Reject : ShapeStates.Uncertain;
@@ -416,12 +428,11 @@ const predicate = new TypePredicateShape(returnType.Template);
 predicate.Pos = pos;
 predicate.SignIn(nameUnit.SourceRange.Start);
 predicate.Add(IdentifierShape.FromCommon(nameUnit, pos));
-// `name` 与 `is` 之间的 trivia、以及 `is` 本身，一起搬进谓词；`is` 留给后面的类型当 pos 锚点。
+// `is` 已经被真实消费：记下它后面的起点当类型 pos 锚点，然后连同 trivia 一起丢弃（不进 Data）。
 const tail = units.splice(nameIndex, tokenIndex - nameIndex + 1);
-for (let at = 1; at < tail.length; at++) {
-  predicate.Add(tail[at]);
-}
-predicate.SourceRange.End = tail[tail.length - 1].SourceRange.End;
+const isUnit = tail[tail.length - 1];
+predicate.TypeStart = isUnit.SourceRange.End;
+predicate.SourceRange.End = isUnit.SourceRange.End;
 units.splice(nameIndex, 0, predicate);
 predicate.Parent = returnType;
 returnType.Predicate = predicate;
@@ -438,12 +449,12 @@ return this.StampCreated(predicate, context);
 if (!(host instanceof TypePredicateShape)) {
   return ShapeStates.Reject;
 }
-for (const item of host.Data) {
-  if (item instanceof IdentifierShape) {
+const units = host.Data;
+for (let at = 0; at < tokenIndex && at < units.length; at++) {
+  if (units[at] instanceof IdentifierShape) {
     return ShapeStates.Reject;
   }
 }
-const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Reject;
 }
@@ -502,10 +513,11 @@ return true;
 ```ts
 const predicate = host as TypePredicateShape;
 const unit = predicate.Data[tokenIndex];
-// `is` 不从 Data 里摘掉：它是后面类型的「前一个代码单元」，留着才能让 PositionOf 停在这里，
-// 否则前后两段 trivia 会拼在一起，把下一个类型的 pos 推回名字之后。
+// `is` 已经被真实消费：记录它后面的起点（下一个类型的 pos 用它），再立刻从 Data 摘掉。
+predicate.TypeStart = unit.SourceRange.End;
+predicate.Data.splice(tokenIndex, 1);
 predicate.CatalogGuide = new CatalogGuide([new TypePredicateTypePossibleShape()], null);
-return this.StampCreated(unit, context);
+return predicate;
 ```
 
 # class TypePredicateTypePossibleShape extends PossibleShape
@@ -517,12 +529,12 @@ if (!(host instanceof TypePredicateShape)) {
   return ShapeStates.Reject;
 }
 const predicate = host;
-for (const item of predicate.Data) {
-  if (item instanceof TypeShape) {
+const units = predicate.Data;
+for (let at = 0; at < tokenIndex && at < units.length; at++) {
+  if (units[at] instanceof TypeShape) {
     return ShapeStates.Reject;
   }
 }
-const units = predicate.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Reject;
 }
@@ -547,7 +559,7 @@ return true;
 ```ts
 const predicate = host as TypePredicateShape;
 const unit = predicate.Data[tokenIndex];
-const pos = ItemUtil.PositionOf(predicate.Data, tokenIndex);
+const pos = predicate.TypeStart >= 0 ? predicate.TypeStart : ItemUtil.PositionOf(predicate.Data, tokenIndex);
 let atom:Token;
 if (unit instanceof String) {
   const literal = StringLiteralShape.FromString(unit, pos);
@@ -584,6 +596,14 @@ if (unit instanceof String) {
   }
 }
 predicate.Data.splice(tokenIndex, 1);
+// 收口后 Data 等价于 AST children：把 tokenIndex 之前的 trivia / basic token 丢掉
+// （只回看 tokenIndex 之前，不遍历后面的单元）。
+for (let at = tokenIndex - 1; at >= 0; at--) {
+  const item = predicate.Data[at];
+  if (item.IsTriviaToken || item.IsBasicToken) {
+    predicate.Data.splice(at, 1);
+  }
+}
 predicate.Add(atom);
 predicate.SourceRange.End = atom.SourceRange.End;
 predicate.CatalogGuide = null;

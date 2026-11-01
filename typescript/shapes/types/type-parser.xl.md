@@ -229,30 +229,38 @@ return name;
 ```ts
 switch (common.TempToString()) {
   case "string":
-    return StringKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(StringKeywordShape.FromCommon(common, pos), common);
   case "number":
-    return NumberKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(NumberKeywordShape.FromCommon(common, pos), common);
   case "boolean":
-    return BooleanKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(BooleanKeywordShape.FromCommon(common, pos), common);
   case "any":
-    return AnyKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(AnyKeywordShape.FromCommon(common, pos), common);
   case "unknown":
-    return UnknownKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(UnknownKeywordShape.FromCommon(common, pos), common);
   case "never":
-    return NeverKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(NeverKeywordShape.FromCommon(common, pos), common);
   case "void":
-    return VoidKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(VoidKeywordShape.FromCommon(common, pos), common);
   case "object":
-    return ObjectKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(ObjectKeywordShape.FromCommon(common, pos), common);
   case "symbol":
-    return SymbolKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(SymbolKeywordShape.FromCommon(common, pos), common);
   case "bigint":
-    return BigIntKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(BigIntKeywordShape.FromCommon(common, pos), common);
   case "undefined":
-    return UndefinedKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(UndefinedKeywordShape.FromCommon(common, pos), common);
   default:
     return null;
 }
+```
+
+## static method KeywordRevision:(shape:KeywordTypeShape, common:Common)=>KeywordTypeShape
+
+```ts
+// 关键字类型整段解析时没有 CreatedAt：记下它本该确定的那一格（收口格）作为修订位。
+shape.CreatedRevisionAt = common.SourceRange.End;
+return shape;
 ```
 
 ## static method IsBalanced:(units:Array<Token>, limit:int)=>bool
@@ -433,7 +441,79 @@ return unit;
 
 ```ts
 TypeShape.Finish(node, pos, start, end, children);
+TypeParser.MarkRevision(node, start, end);
 return node;
+```
+
+## static method MarkRevision:(node:TypeShape, start:int, end:int)=>void
+
+```ts
+// 整段解析时建出来的容器：用 CreatedRevisionAt 记下「如果增量创建，本该确定在哪一格」。
+// 只记 CreatedAt 还没写的节点；别的情况下 CreatedAt 就是实际创建位置。
+// 修订位必须严格小于 CreatedAt（IMPORTANCE），收口时由 NormalizeRevisions 清掉不满足的。
+if (node.CreatedAt >= 0) {
+  return;
+}
+let at = -1;
+if (node instanceof TypeLiteralShape || node instanceof MappedTypeShape) {
+  at = start + 1;
+} else if (node instanceof TupleTypeShape
+    || node instanceof ParenthesizedTypeShape
+    || node instanceof TemplateLiteralTypeShape) {
+  at = start;
+} else if (node instanceof TemplateHeadShape) {
+  at = start + 1;
+} else if (node instanceof TemplateLiteralTypeSpanShape) {
+  at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
+} else if (node instanceof TemplateTailShape) {
+  at = end;
+} else if (node instanceof IndexedAccessTypeShape) {
+  at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
+} else if (node instanceof ArrayTypeShape || node instanceof LiteralTypeShape) {
+  at = end;
+} else if (node instanceof FunctionTypeShape) {
+  // 函数类型整段解析时 CreatedAt 落在 EOF；`=>` 之后才是确定的返回类型，取最后一格做修订位。
+  at = end > 0 ? end - 1 : start;
+} else if (node instanceof TypeReferenceShape || node instanceof QualifiedNameShape) {
+  at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
+} else if (node instanceof PropertySignatureShape
+    || node instanceof MethodSignatureShape
+    || node instanceof ParameterShape
+    || node instanceof TypePredicateShape
+    || node instanceof NamedTupleMemberShape) {
+  let nameEnd = -1;
+  for (const item of node.Data) {
+    if (item instanceof IdentifierShape) {
+      nameEnd = item.SourceRange.End;
+      break;
+    }
+  }
+  at = nameEnd >= 0 ? nameEnd : start;
+} else if (node instanceof OptionalTypeShape || node instanceof RestTypeShape) {
+  at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
+} else if (node instanceof CallSignatureShape) {
+  at = start + 1;
+} else if (node instanceof ConstructSignatureShape || node instanceof IndexSignatureShape) {
+  at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
+} else if (node instanceof TypeParameterShape
+    || node instanceof UnionTypeShape
+    || node instanceof IntersectionTypeShape
+    || node instanceof ConstructorTypeShape) {
+  at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
+} else if (node instanceof TypeOperatorShape || node instanceof TypeQueryShape) {
+  const operand = node.Data.length > 0 ? node.Data[0] : null;
+  const document = node.SourceRange.Document;
+  if (operand !== null && document !== null) {
+    const keyword = document.GetRaw(start, operand.SourceRange.Start).trimEnd();
+    at = start + keyword.length;
+  }
+} else if (node instanceof ImportTypeShape) {
+  at = node.Data.length > 0 ? node.Data[0].SourceRange.Start : start;
+}
+if (at < 0) {
+  return;
+}
+node.CreatedRevisionAt = at;
 ```
 
 ## private method ExpectTypeAngleClose:()=>int
@@ -573,6 +653,11 @@ if (unit instanceof TypeReferenceShape) {
   this.Index++;
   return this.GrowTypeReference(unit);
 }
+// 别名正文第一个关键字类型（TypeAliasBodyKeywordPossibleShape）已经建好：直接复用。
+if (unit instanceof KeywordTypeShape) {
+  this.Index++;
+  return unit;
+}
 // `infer` 收口那一格建好的 InferType：实参表溶解时把剩下的名字 / 约束填进去。
 if (unit instanceof InferTypeShape) {
   this.Index++;
@@ -686,27 +771,27 @@ this.Index++;
 const text = common.TempToString();
 switch (text) {
   case "string":
-    return StringKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(StringKeywordShape.FromCommon(common, pos), common);
   case "number":
-    return NumberKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(NumberKeywordShape.FromCommon(common, pos), common);
   case "boolean":
-    return BooleanKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(BooleanKeywordShape.FromCommon(common, pos), common);
   case "any":
-    return AnyKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(AnyKeywordShape.FromCommon(common, pos), common);
   case "unknown":
-    return UnknownKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(UnknownKeywordShape.FromCommon(common, pos), common);
   case "never":
-    return NeverKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(NeverKeywordShape.FromCommon(common, pos), common);
   case "void":
-    return VoidKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(VoidKeywordShape.FromCommon(common, pos), common);
   case "object":
-    return ObjectKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(ObjectKeywordShape.FromCommon(common, pos), common);
   case "symbol":
-    return SymbolKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(SymbolKeywordShape.FromCommon(common, pos), common);
   case "bigint":
-    return BigIntKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(BigIntKeywordShape.FromCommon(common, pos), common);
   case "undefined":
-    return UndefinedKeywordShape.FromCommon(common, pos);
+    return TypeParser.KeywordRevision(UndefinedKeywordShape.FromCommon(common, pos), common);
   default:
     throw this.MakeError("未知关键字类型 " + text);
 }
@@ -720,11 +805,11 @@ this.Index++;
 const text = common.TempToString();
 let child:Token;
 if (text === "null") {
-  child = NullKeywordShape.FromCommon(common, pos);
+  child = TypeParser.KeywordRevision(NullKeywordShape.FromCommon(common, pos), common);
 } else if (text === "true") {
-  child = TrueKeywordShape.FromCommon(common, pos);
+  child = TypeParser.KeywordRevision(TrueKeywordShape.FromCommon(common, pos), common);
 } else {
-  child = FalseKeywordShape.FromCommon(common, pos);
+  child = TypeParser.KeywordRevision(FalseKeywordShape.FromCommon(common, pos), common);
 }
 const children:Array<Token> = [child];
 return this.Node(new LiteralTypeShape(this.Template), pos, common.SourceRange.Start, common.SourceRange.End, children);
@@ -746,6 +831,7 @@ return this.Node(new LiteralTypeShape(this.Template), pos, common.SourceRange.St
 const pos = this.PosOf(this.Index);
 this.Index++;
 const literal = StringLiteralShape.FromString(string, pos);
+literal.CreatedRevisionAt = string.SourceRange.End;
 const children:Array<Token> = [literal];
 return this.Node(new LiteralTypeShape(this.Template), pos, string.SourceRange.Start, string.SourceRange.End, children);
 ```
@@ -855,6 +941,7 @@ while (true) {
   }
   this.Index++;
   const rightNode = IdentifierShape.FromCommon(right, this.PosOf(rightIndex));
+  rightNode.CreatedRevisionAt = right.SourceRange.End;
   const base = node.Data.length > 0 ? node.Data[0] : null;
   if (base === null) {
     throw this.MakeError("限定名缺少左半");
@@ -945,7 +1032,9 @@ if (!(first instanceof Common) || !OperandUtil.IsIdentifier(first.TempToString()
   throw this.MakeError("期望标识符");
 }
 this.Index++;
-let node:Token = IdentifierShape.FromCommon(first, this.PosOf(firstIndex));
+const identifier = IdentifierShape.FromCommon(first, this.PosOf(firstIndex));
+identifier.CreatedRevisionAt = first.SourceRange.End;
+let node:Token = identifier;
 while (true) {
   this.SkipTrivia();
   if (this.PeekSymbol() !== ".") {
@@ -963,6 +1052,7 @@ while (true) {
   }
   this.Index++;
   const rightNode = IdentifierShape.FromCommon(right, this.PosOf(rightIndex));
+  rightNode.CreatedRevisionAt = right.SourceRange.End;
   const children:Array<Token> = [node, rightNode];
   node = this.Node(new QualifiedNameShape(this.Template), TypeShape.PosOfNode(node), node.SourceRange.Start, rightNode.SourceRange.End, children);
 }
@@ -996,6 +1086,7 @@ if (!(moduleUnit instanceof String)) {
 }
 this.Index++;
 const literal = StringLiteralShape.FromString(moduleUnit, this.PosOf(moduleIndex));
+literal.CreatedRevisionAt = moduleUnit.SourceRange.End;
 const literalChildren:Array<Token> = [literal];
 const literalType = this.Node(new LiteralTypeShape(this.Template), literal.Pos, moduleUnit.SourceRange.Start, moduleUnit.SourceRange.End, literalChildren);
 this.ExpectSymbol(")");
@@ -1045,7 +1136,9 @@ this.SkipTrivia();
 if (this.PeekCommon() === "abstract") {
   const abstractIndex = this.Index;
   this.Index++;
-  children.push(AbstractKeywordShape.FromUnit(this.Units[abstractIndex], this.PosOf(abstractIndex)));
+  const abstractKeyword = AbstractKeywordShape.FromUnit(this.Units[abstractIndex], this.PosOf(abstractIndex));
+  abstractKeyword.CreatedRevisionAt = this.Units[abstractIndex].SourceRange.End;
+  children.push(abstractKeyword);
 }
 this.ExpectCommon("new");
 const parameters = this.ParseTypeParametersIfPresent();
@@ -1185,6 +1278,7 @@ if (!(nameUnit instanceof Common) || !OperandUtil.IsIdentifier(nameUnit.TempToSt
 }
 this.Index++;
 const name = IdentifierShape.FromCommon(nameUnit, this.PosOf(nameIndex));
+name.CreatedRevisionAt = nameUnit.SourceRange.End;
 const children:Array<Token> = [name];
 let end = name.SourceRange.End;
 this.SkipTrivia();
@@ -1245,12 +1339,16 @@ if (!(nameUnit instanceof Common) || !OperandUtil.IsIdentifier(nameUnit.TempToSt
   throw this.MakeError("参数缺少名称");
 }
 this.Index++;
-children.push(IdentifierShape.FromCommon(nameUnit, this.PosOf(nameIndex)));
+const paramName = IdentifierShape.FromCommon(nameUnit, this.PosOf(nameIndex));
+paramName.CreatedRevisionAt = nameUnit.SourceRange.End;
+children.push(paramName);
 this.SkipTrivia();
 if (this.PeekSymbol() === "?") {
   const questionIndex = this.Index;
   this.Index++;
-  children.push(QuestionTokenShape.FromUnit(this.Units[questionIndex], this.PosOf(questionIndex)));
+  const questionShape = QuestionTokenShape.FromUnit(this.Units[questionIndex], this.PosOf(questionIndex));
+  questionShape.CreatedRevisionAt = this.Units[questionIndex].SourceRange.End;
+  children.push(questionShape);
 }
 this.SkipTrivia();
 if (this.PeekSymbol() === ":") {
@@ -1276,7 +1374,9 @@ if (this.PeekCommon() === "asserts") {
     throw this.MakeError("asserts 缺少参数名");
   }
   this.Index++;
-  children.push(IdentifierShape.FromCommon(nameUnit, this.PosOf(nameIndex)));
+  const assertsName = IdentifierShape.FromCommon(nameUnit, this.PosOf(nameIndex));
+  assertsName.CreatedRevisionAt = nameUnit.SourceRange.End;
+  children.push(assertsName);
   this.ExpectCommon("is");
   const type = this.ParseType();
   children.push(type);
@@ -1291,7 +1391,9 @@ if (unit instanceof Common && OperandUtil.IsIdentifier(unit.TempToString()) && !
       const startIndex = this.Index;
       const nameIndex = this.Index;
       this.Index++;
-      const children:Array<Token> = [IdentifierShape.FromCommon(unit, this.PosOf(nameIndex))];
+      const predicateName = IdentifierShape.FromCommon(unit, this.PosOf(nameIndex));
+      predicateName.CreatedRevisionAt = unit.SourceRange.End;
+      const children:Array<Token> = [predicateName];
       this.SkipTrivia();
       this.Index++;
       const type = this.ParseType();
@@ -1344,12 +1446,15 @@ if (unit instanceof Common && OperandUtil.IsIdentifier(unit.TempToString()) && !
   const nameIndex = this.Index;
   this.Index++;
   const name = IdentifierShape.FromCommon(unit, this.PosOf(nameIndex));
+  name.CreatedRevisionAt = unit.SourceRange.End;
   this.SkipTrivia();
   const children:Array<Token> = [name];
   if (this.PeekSymbol() === "?") {
     const questionIndex = this.Index;
     this.Index++;
-    children.push(QuestionTokenShape.FromUnit(this.Units[questionIndex], this.PosOf(questionIndex)));
+    const questionShape = QuestionTokenShape.FromUnit(this.Units[questionIndex], this.PosOf(questionIndex));
+  questionShape.CreatedRevisionAt = this.Units[questionIndex].SourceRange.End;
+  children.push(questionShape);
   }
   this.ExpectSymbol(":");
   const type = this.ParseType();
@@ -1362,6 +1467,7 @@ if (this.PeekSymbol() === "?") {
   const questionIndex = this.Index;
   this.Index++;
   const question = QuestionTokenShape.FromUnit(this.Units[questionIndex], this.PosOf(questionIndex));
+  question.CreatedRevisionAt = this.Units[questionIndex].SourceRange.End;
   const children:Array<Token> = [type];
   return this.Node(new OptionalTypeShape(this.Template), TypeShape.PosOfNode(type), type.SourceRange.Start, question.SourceRange.End, children);
 }
@@ -1420,15 +1526,21 @@ this.SkipTrivia();
 if (this.PeekCommon() === "readonly") {
   const index = this.Index;
   this.Index++;
-  children.push(ReadonlyKeywordShape.FromUnit(this.Units[index], this.PosOf(index)));
+  const readonlyShape = ReadonlyKeywordShape.FromUnit(this.Units[index], this.PosOf(index));
+  readonlyShape.CreatedRevisionAt = this.Units[index].SourceRange.End;
+  children.push(readonlyShape);
 } else if (this.PeekSymbol() === "+" || this.PeekSymbol() === "-") {
   const index = this.Index;
   const unit = this.Units[index] as Symbol;
   this.Index++;
   if (unit.TempToString() === "+") {
-    children.push(PlusTokenShape.FromSymbol(unit, this.PosOf(index)));
+    const plus = PlusTokenShape.FromSymbol(unit, this.PosOf(index));
+    plus.CreatedRevisionAt = unit.SourceRange.End;
+    children.push(plus);
   } else {
-    children.push(MinusTokenShape.FromSymbol(unit, this.PosOf(index)));
+    const minus = MinusTokenShape.FromSymbol(unit, this.PosOf(index));
+    minus.CreatedRevisionAt = unit.SourceRange.End;
+    children.push(minus);
   }
   this.SkipTrivia();
   if (this.PeekCommon() === "readonly") {
@@ -1444,6 +1556,7 @@ if (!(nameUnit instanceof Common) || !OperandUtil.IsIdentifier(nameUnit.TempToSt
 }
 this.Index++;
 const name = IdentifierShape.FromCommon(nameUnit, this.PosOf(nameIndex));
+name.CreatedRevisionAt = nameUnit.SourceRange.End;
 this.ExpectCommon("in");
 const constraint = this.ParseType();
 const parameterChildren:Array<Token> = [name, constraint];
@@ -1459,15 +1572,21 @@ this.SkipTrivia();
 if (this.PeekSymbol() === "?") {
   const index = this.Index;
   this.Index++;
-  children.push(QuestionTokenShape.FromUnit(this.Units[index], this.PosOf(index)));
+  const questionShape = QuestionTokenShape.FromUnit(this.Units[index], this.PosOf(index));
+  questionShape.CreatedRevisionAt = this.Units[index].SourceRange.End;
+  children.push(questionShape);
 } else if (this.PeekSymbol() === "+" || this.PeekSymbol() === "-") {
   const index = this.Index;
   const unit = this.Units[index] as Symbol;
   this.Index++;
   if (unit.TempToString() === "+") {
-    children.push(PlusTokenShape.FromSymbol(unit, this.PosOf(index)));
+    const plus = PlusTokenShape.FromSymbol(unit, this.PosOf(index));
+    plus.CreatedRevisionAt = unit.SourceRange.End;
+    children.push(plus);
   } else {
-    children.push(MinusTokenShape.FromSymbol(unit, this.PosOf(index)));
+    const minus = MinusTokenShape.FromSymbol(unit, this.PosOf(index));
+    minus.CreatedRevisionAt = unit.SourceRange.End;
+    children.push(minus);
   }
   // `+?` / `-?`：`?` 不是子节点，只跟在这个符号后面。
   this.SkipTrivia();
@@ -1530,7 +1649,9 @@ const modifiers:Array<Token> = [];
 if (this.PeekCommon() === "readonly" && this.IsReadonlyModifier()) {
   const index = this.Index;
   this.Index++;
-  modifiers.push(ReadonlyKeywordShape.FromUnit(this.Units[index], this.PosOf(index)));
+  const readonlyShape = ReadonlyKeywordShape.FromUnit(this.Units[index], this.PosOf(index));
+  readonlyShape.CreatedRevisionAt = this.Units[index].SourceRange.End;
+  modifiers.push(readonlyShape);
   this.SkipTrivia();
 }
 if (this.PeekSymbol() === "(") {
@@ -1564,7 +1685,9 @@ for (const modifier of modifiers) {
 }
 children.push(name);
 if (question !== null) {
-  children.push(QuestionTokenShape.FromUnit(question, this.PosOf(questionIndex)));
+  const questionShape = QuestionTokenShape.FromUnit(question, this.PosOf(questionIndex));
+  questionShape.CreatedRevisionAt = question.SourceRange.End;
+  children.push(questionShape);
 }
 children.push(type);
 let end = type.SourceRange.End;
@@ -1598,13 +1721,19 @@ const unit = this.Units[index];
 if (unit instanceof Common) {
   this.Index++;
   if (unit.IsNumber()) {
-    return NumericLiteralShape.FromCommon(unit, this.PosOf(index));
+    const numeric = NumericLiteralShape.FromCommon(unit, this.PosOf(index));
+    numeric.CreatedRevisionAt = unit.SourceRange.End;
+    return numeric;
   }
-  return IdentifierShape.FromCommon(unit, this.PosOf(index));
+  const identifier = IdentifierShape.FromCommon(unit, this.PosOf(index));
+  identifier.CreatedRevisionAt = unit.SourceRange.End;
+  return identifier;
 }
 if (unit instanceof String) {
   this.Index++;
-  return StringLiteralShape.FromString(unit, this.PosOf(index));
+  const literal = StringLiteralShape.FromString(unit, this.PosOf(index));
+  literal.CreatedRevisionAt = unit.SourceRange.End;
+  return literal;
 }
 throw this.MakeError("类型成员缺少名称");
 ```
@@ -1618,7 +1747,9 @@ for (const modifier of modifiers) {
 }
 children.push(name);
 if (question !== null) {
-  children.push(QuestionTokenShape.FromUnit(question, this.PosOf(questionIndex)));
+  const questionShape = QuestionTokenShape.FromUnit(question, this.PosOf(questionIndex));
+  questionShape.CreatedRevisionAt = question.SourceRange.End;
+  children.push(questionShape);
 }
 for (const parameter of parameters) {
   children.push(parameter);
@@ -1694,6 +1825,7 @@ if (!(nameUnit instanceof Common) || !OperandUtil.IsIdentifier(nameUnit.TempToSt
 }
 this.Index++;
 const name = IdentifierShape.FromCommon(nameUnit, this.PosOf(nameIndex));
+name.CreatedRevisionAt = nameUnit.SourceRange.End;
 this.ExpectSymbol(":");
 const parameterType = this.ParseType();
 this.ExpectSymbol("]");

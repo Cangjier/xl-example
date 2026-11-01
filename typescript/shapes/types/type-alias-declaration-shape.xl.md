@@ -6,9 +6,11 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { TypeAliasParsed } from "./type-parser.xl.md"
 import { TypeParser } from "./type-parser.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { ConditionalTypeShape } from "./type-node-shapes.xl.md"
 import { TypeParameterShape } from "./type-node-shapes.xl.md"
 import { TypeReferenceShape } from "./type-node-shapes.xl.md"
+import { KeywordTypeShape } from "./keyword-type-shapes.xl.md"
 import { TypeConditionalUtil } from "./type-conditional-chain.xl.md"
 import { TypeParameterListShape } from "./type-parameter-list-shape.xl.md"
 ```
@@ -41,13 +43,31 @@ if (this.HasBuiltType()) {
     this.SourceRange.End = last.SourceRange.End;
   }
   this.Closed = true;
+  TypeAliasDeclarationShape.NormalizeRevisions(this);
   return CloseStates.Nothing;
 }
 const parsed = TypeParser.ParseAlias(this.Data, this.Data.length, this.Template);
 const type = parsed.Type!;
 TypeAliasDeclarationShape.Apply(this, parsed, type.SourceRange.End);
 this.Closed = true;
+TypeAliasDeclarationShape.NormalizeRevisions(this);
 return CloseStates.Nothing;
+```
+
+## static method NormalizeRevisions:(node:Token)=>void
+
+```ts
+// IMPORTANCE：CreatedRevisionAt 必须严格小于 CreatedAt。整段解析时先把「本该在哪一格」记下来，
+// 收口时把不满足的修订位清掉。CreatedAt 还没写的节点（build 没走过）保持原样：
+// 它的真实创建位置由创建方负责，修订位只标记「本该在哪一格」。
+if (node instanceof ShapeToken) {
+  if (node.CreatedRevisionAt >= 0 && node.CreatedAt >= 0 && node.CreatedRevisionAt >= node.CreatedAt) {
+    node.CreatedRevisionAt = -1;
+  }
+}
+for (const item of node.Data) {
+  TypeAliasDeclarationShape.NormalizeRevisions(item);
+}
 ```
 
 ## private method HasBuiltType:()=>bool
@@ -58,11 +78,13 @@ return CloseStates.Nothing;
 // 这类只在头部成形的别名在收口时被当成已完工，正文被 IsBasicToken 过滤掉。
 // 正文第一个名字建出的 TypeReference 也只是一个起点：`T[]` / `A | B` / `T["a"]` 的后半段
 // 还没被增量处理，收口时要把整段交给 ParseAlias（它会复用这颗引用，不重建）。
+// 关键字类型同理：`string[]` / `string | number` 的后缀还没增量处理，不能当正文已完工。
 for (const item of this.Data) {
   if (item instanceof TypeShape
       && !(item instanceof TypeParameterShape)
       && !(item instanceof TypeParameterListShape)
-      && !(item instanceof TypeReferenceShape)) {
+      && !(item instanceof TypeReferenceShape)
+      && !(item instanceof KeywordTypeShape)) {
     return true;
   }
 }

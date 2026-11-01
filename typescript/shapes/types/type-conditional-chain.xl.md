@@ -564,6 +564,114 @@ if (TypeConditionalUtil.IsPrefixText(text) || TypeConditionalUtil.IsKeywordText(
 return OperandUtil.IsIdentifier(text) && !OperandUtil.IsKeyword(text);
 ```
 
+## static method IsKeywordTypeText:(text:string)=>bool
+
+```ts
+switch (text) {
+  case "string":
+  case "number":
+  case "boolean":
+  case "any":
+  case "unknown":
+  case "never":
+  case "void":
+  case "object":
+  case "symbol":
+  case "bigint":
+  case "undefined":
+    return true;
+  default:
+    return false;
+}
+```
+
+## static method IsBodyKeyword:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
+
+```ts
+// 别名正文的第一个代码单元是刚收口的关键字类型（`string` / `number` / …）：
+// 这一刻它就是关键字类型节点，由 TypeAliasBodyKeywordPossibleShape 建出来。
+// 看的是正文起点，不要求 tokenIndex 正好落在它身上：`string[` 里 `[` 先到、
+// 关键字随后才收口，这一格也要让位。
+const bodyIndex = TypeConditionalUtil.BodyStart(units, tokenIndex, cache);
+if (bodyIndex < 0 || bodyIndex >= units.length) {
+  return false;
+}
+const unit = units[bodyIndex];
+if (!(unit instanceof Common) || !unit.Closed) {
+  return false;
+}
+return TypeConditionalUtil.IsKeywordTypeText(unit.TempToString());
+```
+
+## static method IsPostfixArrayClose:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
+
+```ts
+// 正文已经是一颗收口的类型，最后一个代码单元是（或刚收口成）`]`：`string[]` / `T[]` 的数组后缀。
+// 这一格让位给 TypeAliasArraySuffixPossibleShape（它就地建 ArrayType）。
+const bodyIndex = TypeConditionalUtil.BodyStart(units, tokenIndex, cache);
+if (bodyIndex < 0 || bodyIndex >= units.length) {
+  return false;
+}
+const type = units[bodyIndex];
+if (!(type instanceof TypeShape) || !type.Closed) {
+  return false;
+}
+const closeIndex = ItemUtil.PreviousCode(units, tokenIndex);
+if (closeIndex < 0) {
+  return false;
+}
+const close = units[closeIndex];
+if (!(close instanceof Symbol) || !close.Closed || !close.Is("]")) {
+  return false;
+}
+const openIndex = ItemUtil.PreviousCode(units, closeIndex - 1);
+if (openIndex < 0) {
+  return false;
+}
+const open = units[openIndex];
+if (!(open instanceof Symbol) || !open.Closed || !open.Is("[")) {
+  return false;
+}
+return ItemUtil.PreviousCode(units, openIndex - 1) === bodyIndex;
+```
+
+## static method IsOperatorMember:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
+
+```ts
+// 正文已经是一颗收口类型，后面跟 `|` / `&`，当前格是刚收口的成员：
+// `string | number`、`A1 & A2`。这一格让位给 TypeAliasOperatorMemberPossibleShape（它折成 Union/Intersection）。
+const bodyIndex = TypeConditionalUtil.BodyStart(units, tokenIndex, cache);
+if (bodyIndex < 0 || bodyIndex >= units.length) {
+  return false;
+}
+const left = units[bodyIndex];
+if (!(left instanceof TypeShape) || !left.Closed) {
+  return false;
+}
+const memberIndex = ItemUtil.PreviousCode(units, tokenIndex);
+if (memberIndex < 0) {
+  return false;
+}
+const member = units[memberIndex];
+if (!(member instanceof Common) || !member.Closed) {
+  return false;
+}
+const text = member.TempToString();
+if (!TypeConditionalUtil.IsKeywordTypeText(text)
+    && (OperandUtil.IsKeyword(text) || !OperandUtil.IsIdentifier(text))) {
+  return false;
+}
+const opIndex = ItemUtil.PreviousCode(units, memberIndex - 1);
+if (opIndex < 0) {
+  return false;
+}
+const op = units[opIndex];
+if (!(op instanceof Symbol) || !op.Closed || (!op.Is("|") && !op.Is("&"))) {
+  return false;
+}
+return ItemUtil.PreviousCode(units, opIndex - 1) === bodyIndex;
+```
+
 ## static method HasBodyCode:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
 
 ```ts
@@ -899,8 +1007,17 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
   return ShapeStates.Reject;
 }
-// 正文第一个名字收口那一格让位给 TypeAliasBodyPossibleShape（它只在这一格 Accept）。
+// 正文第一个名字 / 关键字类型收口那一格让位给对应的早建候选（它们只在这一格 Accept）。
 if (TypeConditionalUtil.IsBodyName(units, tokenIndex, cache)) {
+  return ShapeStates.Reject;
+}
+if (TypeConditionalUtil.IsBodyKeyword(units, tokenIndex, cache)) {
+  return ShapeStates.Reject;
+}
+if (TypeConditionalUtil.IsPostfixArrayClose(units, tokenIndex, cache)) {
+  return ShapeStates.Reject;
+}
+if (TypeConditionalUtil.IsOperatorMember(units, tokenIndex, cache)) {
   return ShapeStates.Reject;
 }
 if (TypeConditionalUtil.IsAliasEnd(units, tokenIndex)) {

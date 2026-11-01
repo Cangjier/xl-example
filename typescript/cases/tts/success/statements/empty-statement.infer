@@ -7,4 +7,4 @@
 ```
 
 SourceFile  pos=0  src=[0,2)   // "【;:0】"
-└─ EmptyStatement  pos=0  src=[0,1)   // "【;:0】" -> llm ";【⏎:1】"
+└─ EmptyStatement  pos=0  src=[0,1)   // "【;:0】"

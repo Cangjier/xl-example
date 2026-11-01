@@ -9,5 +9,5 @@ type A = string[]
 SourceFile  pos=0  src=[0,18)   // "【t:0】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,17)   // "type A【␣:6】= string"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【␣:6】= string"
-   └─ ArrayType  pos=8  src=[9,17)   // ? -> llm "string【[:15】]"
-      └─ StringKeyword  pos=8  src=[9,15)  text="string"   // ? -> llm "string【[:15】]"
+   └─ ArrayType  pos=8  src=[9,17)   // "string[【]:16】"
+      └─ StringKeyword  pos=8  src=[9,15)  text="string"   // "string【[:15】]"
