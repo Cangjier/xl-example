@@ -31,6 +31,7 @@ state和share的区别是：state是面向每一个possible的独立空间(compu
 
 ### 未消费的basic token
 当possible build时，可能不会全部basic token都进行消费，成为shape的信息。这些未消费的baisc token存在以下情况：
+- trival 类型，忽略，在build或close时进行移除
 - 应该被消费没有消费，这个是build的错误
 - 按照形状预期，应该收到build的shape下面，由后续basic tokens关闭时/EOF触发消费
 - 按照形状预期，应该继续挂载在原parent下面，并在build之后调用Reclose（将closed设为false，并重新close），基于build后的状态触发新的compute
@@ -59,7 +60,7 @@ n=4000 时相差约 **340 倍**，曲线从二次变平。
 ### possible compute/build 行为规范
 - 只允许查看tokenIndex之前，禁止查看tokenIndex之后，因为此时tokenIndex之后的数据不一定准备好。（包括过程中使用的工具函数）
 - compute/build过程中发生的异常禁止catch吃掉，这些异常是possible诊断，是用户期望看到的信息。
-- possible/build禁止跳跃式处理（除了trivia），如 shape1, basic token1, shape2, ...; 此时basic token1尚未被消费，必须前置basic token确定形状后，才能处理后续。
+- possible/build禁止跳跃式处理（除了trivia），如 shape1, basic token1, shape2, ...; 此时basic token1尚未被消费，必须前置basic token确定形状后，才能处理后续（除了trival类型）。
 
 ### shape tokn关键字段
 CreatedAt 必须是实际创建位置
