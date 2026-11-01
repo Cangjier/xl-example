@@ -24,6 +24,7 @@ import { TypePredicateShape } from "./type-node-shapes.xl.md"
 import { TypeReferenceShape } from "./type-node-shapes.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { TypeAliasEndPossibleShape } from "./type-alias-end-possible-shape.xl.md"
+import { TypeConditionalUtil } from "./type-conditional-chain.xl.md"
 import { TypeParameterListShape } from "./type-parameter-list-shape.xl.md"
 import { TypeParser } from "./type-parser.xl.md"
 ```
@@ -92,6 +93,10 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 const unit = units[tokenIndex];
 // 头部 `<` 只能是类型参数表：让位给 TypeParameterListOpenPossibleShape（它只在这一格 Accept）。
 if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
+  return ShapeStates.Reject;
+}
+// 正文第一个名字收口那一格让位给 TypeAliasBodyPossibleShape（它只在这一格 Accept）。
+if (TypeConditionalUtil.IsBodyName(units, tokenIndex, cache)) {
   return ShapeStates.Reject;
 }
 // 这两类是语句收口的 token，让给终结候选。

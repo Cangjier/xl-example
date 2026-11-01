@@ -24,6 +24,7 @@ export const DEFAULT_ROOT = path.resolve(HERE, '..', '..', '..', '..')
  *   maxTokens: number,
  *   timeoutMs: number,
  *   retries: number,
+ *   runs: number,
  * }} 归一化后的配置。
  * @throws {Error} 某一项类型不对时。
  */
@@ -53,6 +54,7 @@ export function normalizeConfig(raw) {
     maxTokens: positiveInteger(config.maxTokens, 8192, 'maxTokens'),
     timeoutMs: positiveInteger(config.timeoutMs, 120_000, 'timeoutMs'),
     retries: nonNegativeInteger(config.retries, 1, 'retries'),
+    runs: boundedInteger(config.runs, 3, 1, 9, 'runs'),
   }
 }
 
@@ -84,6 +86,24 @@ function nonNegativeInteger(value, fallback, name) {
   }
   if (!Number.isInteger(value) || value < 0) {
     throw new Error(`${name} 必须是非负整数（收到 ${JSON.stringify(value)}）`)
+  }
+  return value
+}
+
+/**
+ * @param {unknown} value
+ * @param {number} fallback
+ * @param {number} min
+ * @param {number} max
+ * @param {string} name
+ * @returns {number}
+ */
+function boundedInteger(value, fallback, min, max, name) {
+  if (value === undefined || value === null) {
+    return fallback
+  }
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new Error(`${name} 必须是 ${min}..${max} 的整数（收到 ${JSON.stringify(value)}）`)
   }
   return value
 }

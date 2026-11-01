@@ -66,7 +66,8 @@ node typescript/tools/gen-case-docs.mjs typescript/cases/tts/success/statements/
 - `created at`：`ShapeToken.CreatedAt`，possible / end 的 build 建出这颗形状的那一格。
   `ShapeToken.CreatedRevisionAt` 是「创建时拿不到、end 时才拿得到」的修订位置：`.infer` 的 created 列
   **优先用修订位置**，没有修订才用 `CreatedAt`。头部 `TypeParameter` 现在在 `<` 那一格就增量建出来
-  （`CreatedAt = <` 的字符），不再回填名字第一格。
+  （`CreatedAt = <` 的字符），不再回填名字第一格；正文第一个名字（`type A = T …` 的 `T`）也在名字
+  收口那一格建出 TypeReference，后面的 `.` / `<` / `[` / `extends` 都在这颗引用上继续长。
   根 `SourceFile` 在第一个字符之前就存在，记 `【字符:0】`；落在 EOF 那一格时记 `【␃:<字符总数>】`；
   还没写 create 入口的形状整行位置记 `?`。
 - `llm determined`：模型按语法逻辑判定的「最早能确定」位置，不看解析器；还没判定时箭头后面记 `?`。
@@ -83,7 +84,8 @@ node typescript/tools/case-infer.mjs --check <xxx.ts>     # llm determined vs cr
 - 骨架默认不覆盖已有 `.infer`，要重来加 `--force`。
 - 骨架和 `--check` / `--format` 都要读 `build/ts`（先 `npm run build`），因为 `created at` 只能从 shape token 取。
 - 也可以让宿主模型来判定：DSH 插件 `typescript/tools/dsh-case-infer` 注册了 `case_infer`，
-  用当前默认模型生成并立刻对拍（`npm run infer:test` 是它的离线测试）。
+  用当前默认模型生成并立刻对拍（`npm run infer:test` 是它的离线测试）。默认跑 3 次、逐节点投票；
+  有分歧的节点先写 `-> llm ?` 交回 DSH 用 `decisions` 定（见插件 README）。
 - `--check` 的状态：`ok` / `late +N`（模型判得比实际创建晚 N 格）/ `early -N` / `unfilled`（llm 还是 `?`）/
   `no-created`（shape token 还没记 CreatedAt）/ `no-shape`（树里没有这个节点）/ `stale`（`.infer` 里的节点 `.ast` 没有）。
   它不修任何东西，只把差异列出来。

@@ -288,7 +288,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[18,19)  text=" "
    ├─ Symbol  src=[19,20)  text="="
    ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="T"
+   ├─ TypeReferenceShape  pos=20  src=[21,22)
+   │  └─ IdentifierShape  pos=20  src=[21,22)  text="T"
    └─ Symbol  src=[22,23)  text="["
 ```
 
@@ -304,7 +305,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[18,19)  text=" "
    ├─ Symbol  src=[19,20)  text="="
    ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="T"
+   ├─ TypeReferenceShape  pos=20  src=[21,22)
+   │  └─ IdentifierShape  pos=20  src=[21,22)  text="T"
    ├─ Symbol  src=[22,23)  text="["
    └─ Symbol  src=[23,24)  text="]"
 ```
@@ -321,7 +323,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[18,19)  text=" "
    ├─ Symbol  src=[19,20)  text="="
    ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="T"
+   ├─ TypeReferenceShape  pos=20  src=[21,22)
+   │  └─ IdentifierShape  pos=20  src=[21,22)  text="T"
    ├─ Symbol  src=[22,23)  text="["
    ├─ Symbol  src=[23,24)  text="]"
    └─ WrapSymbol  src=[24,25)  text="\n"

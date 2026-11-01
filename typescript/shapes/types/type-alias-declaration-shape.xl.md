@@ -8,6 +8,7 @@ import { TypeParser } from "./type-parser.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
 import { ConditionalTypeShape } from "./type-node-shapes.xl.md"
 import { TypeParameterShape } from "./type-node-shapes.xl.md"
+import { TypeReferenceShape } from "./type-node-shapes.xl.md"
 import { TypeConditionalUtil } from "./type-conditional-chain.xl.md"
 import { TypeParameterListShape } from "./type-parameter-list-shape.xl.md"
 ```
@@ -55,10 +56,13 @@ return CloseStates.Nothing;
 // 只有「类型体」已经长成形状才算走了增量路径：头部的 TypeParameter 也是 TypeShape，
 // 它和还没收口的 TypeParameterList 都只是头部脚手架，算进来会让 `type A<T, U> = T`
 // 这类只在头部成形的别名在收口时被当成已完工，正文被 IsBasicToken 过滤掉。
+// 正文第一个名字建出的 TypeReference 也只是一个起点：`T[]` / `A | B` / `T["a"]` 的后半段
+// 还没被增量处理，收口时要把整段交给 ParseAlias（它会复用这颗引用，不重建）。
 for (const item of this.Data) {
   if (item instanceof TypeShape
       && !(item instanceof TypeParameterShape)
-      && !(item instanceof TypeParameterListShape)) {
+      && !(item instanceof TypeParameterListShape)
+      && !(item instanceof TypeReferenceShape)) {
     return true;
   }
 }

@@ -144,7 +144,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
+   ├─ TypeReferenceShape  pos=11  src=[12,13)
+   │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
    └─ WrapSymbol  src=[13,14)  text=" "
 ```
 
@@ -159,7 +160,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
+   ├─ TypeReferenceShape  pos=11  src=[12,13)
+   │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
    ├─ WrapSymbol  src=[13,14)  text=" "
    └─ Common  src=[14,15)  text="e"
 ```
@@ -175,7 +177,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
+   ├─ TypeReferenceShape  pos=11  src=[12,13)
+   │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
    ├─ WrapSymbol  src=[13,14)  text=" "
    └─ Common  src=[14,16)  text="ex"
 ```
@@ -191,7 +194,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
+   ├─ TypeReferenceShape  pos=11  src=[12,13)
+   │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
    ├─ WrapSymbol  src=[13,14)  text=" "
    └─ Common  src=[14,17)  text="ext"
 ```
@@ -207,7 +211,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
+   ├─ TypeReferenceShape  pos=11  src=[12,13)
+   │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
    ├─ WrapSymbol  src=[13,14)  text=" "
    └─ Common  src=[14,18)  text="exte"
 ```
@@ -223,7 +228,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
+   ├─ TypeReferenceShape  pos=11  src=[12,13)
+   │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
    ├─ WrapSymbol  src=[13,14)  text=" "
    └─ Common  src=[14,19)  text="exten"
 ```
@@ -239,7 +245,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
+   ├─ TypeReferenceShape  pos=11  src=[12,13)
+   │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
    ├─ WrapSymbol  src=[13,14)  text=" "
    └─ Common  src=[14,20)  text="extend"
 ```
@@ -255,7 +262,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
+   ├─ TypeReferenceShape  pos=11  src=[12,13)
+   │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
    ├─ WrapSymbol  src=[13,14)  text=" "
    └─ Common  src=[14,21)  text="extends"
 ```

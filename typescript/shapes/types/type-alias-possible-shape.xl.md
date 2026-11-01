@@ -16,6 +16,9 @@ import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { TypeAliasEndPossibleShape } from "./type-alias-end-possible-shape.xl.md"
 import { TypeFunctionArrowPossibleShape } from "./type-function-incremental.xl.md"
 import { TypeAliasChainPossibleShape } from "./type-conditional-chain.xl.md"
+import { TypeConditionalUtil } from "./type-conditional-chain.xl.md"
+import { TypeReferenceShape } from "./type-node-shapes.xl.md"
+import { TypeParameterListShape } from "./type-parameter-list-shape.xl.md"
 import { TypeParameterListOpenPossibleShape } from "./type-parameter-list-shape.xl.md"
 ```
 
@@ -82,6 +85,7 @@ alias.Add(identifier);
 alias.CatalogGuide = new CatalogGuide(
   [
     new TypeParameterListOpenPossibleShape(),
+    new TypeAliasBodyPossibleShape(),
     new TypeFunctionArrowPossibleShape(),
     new TypeAliasChainPossibleShape(),
   ],
@@ -91,4 +95,55 @@ units.splice(start, nameIndex - start + 1, alias);
 alias.Parent = host;
 host.MountedUnit = alias;
 return this.StampCreated(alias, context);
+```
+
+# class TypeAliasBodyPossibleShape extends PossibleShape
+
+## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+
+```ts
+if (!(host instanceof TypeAliasDeclarationShape)) {
+  return ShapeStates.Reject;
+}
+const units = host.Data;
+// 头部 `<` 只能是类型参数表：让位给 TypeParameterListOpenPossibleShape（它只在这一格 Accept）。
+if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
+  return ShapeStates.Reject;
+}
+// 正文第一个代码单元是刚收口的名字：这一刻就建类型引用，不等 `.` / `<` / `[` / `extends` 来证明。
+if (TypeConditionalUtil.IsBodyName(units, tokenIndex, cache)) {
+  return ShapeStates.Accept;
+}
+// 正文还没开始就一直等；已经开始了（第一个单元不是名字，或已经长成形状）就让位给条件类型 / 函数类型。
+// 让位以后这个候选就退出 Candidate，直到下一次 build 的 Reset 才回来：正文以 `{` / `[` / `(` 开头时
+// 只在第一个代码单元上算一遍，不会每格重扫（trivia 关闭不触发 compute）。
+return TypeConditionalUtil.HasBodyCode(units, tokenIndex, cache) ? ShapeStates.Reject : ShapeStates.Uncertain;
+```
+
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+
+```ts
+return TypeConditionalUtil.IsBodyName(units, tokenIndex, cache);
+```
+
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+
+```ts
+// 名字这一格就把 TypeReference 建出来（`CreatedAt` = 名字收口格）。后面的 `.` / `<` 在它身上继续长，
+// `extends` 由 TypeAliasChainPossibleShape 收成 ConditionalType 并复用这颗引用；
+// 其余写法在别名收口时走 ParseAlias，ParsePrimary 认这颗已建好的引用，不会重建。
+const alias = host as TypeAliasDeclarationShape;
+const units = alias.Data;
+const unit = units[tokenIndex] as Common;
+const pos = ItemUtil.PositionOf(units, tokenIndex);
+const identifier = IdentifierShape.FromCommon(unit, pos);
+const reference = new TypeReferenceShape(alias.Template);
+reference.Pos = pos;
+reference.SignIn(unit.SourceRange.Start);
+reference.Add(identifier);
+reference.SignOut(unit.SourceRange.End);
+reference.Closed = true;
+units.splice(tokenIndex, 1, reference);
+reference.Parent = alias;
+return this.StampCreated(reference, context);
 ```

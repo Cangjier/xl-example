@@ -128,7 +128,7 @@ function escapeContext(text) {
 
 /** 标记字符的上下文；位置写成 `字符:字符号`（`【<:7】`）。at 落在 EOF 那一格（= 字符总数）时贴在末尾，
  *  那一格没有字符，用 `␃` 表示。 */
-function contextAt(source, at) {
+export function contextAt(source, at) {
   if (at === null || at === undefined) {
     return "";
   }

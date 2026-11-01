@@ -55,7 +55,7 @@ const NUMBERS = [
   { kind: 'TypeParameter', pos: 7, start: 7, char: 6 },
   { kind: 'Identifier', pos: 7, start: 7, char: 8 },
   { kind: 'ConditionalType', pos: 11, start: 12, char: 21 },
-  { kind: 'TypeReference', pos: 11, start: 12, char: 14 },
+  { kind: 'TypeReference', pos: 11, start: 12, char: 13 },
   { kind: 'Identifier', pos: 11, start: 12, char: 13 },
   { kind: 'TypeReference', pos: 21, start: 22, char: 27 },
   { kind: 'Identifier', pos: 21, start: 22, char: 27 },
@@ -86,8 +86,11 @@ test('正确的模型输出：写盘 + 对拍', async (t) => {
   const result = await tool.execute({ case: 'success/types/alias-conditional-infer' })
 
   assert.equal(result.ok, true)
+  assert.equal(result.status, 'written')
   assert.equal(result.nodes, 16)
-  assert.equal(result.calls, 1)
+  assert.equal(result.runs, 3)
+  assert.equal(result.calls, 3)
+  assert.deepEqual(result.pending, [])
   assert.equal(fs.existsSync(file.replace(/\.ts$/, '.infer')), true)
 
   const text = fs.readFileSync(file.replace(/\.ts$/, '.infer'), 'utf8')
@@ -102,12 +105,12 @@ test('正确的模型输出：写盘 + 对拍', async (t) => {
   // 这颗形状还没写 create 入口：created 侧记 ?，不是拿别的格冒充。
   assert.match(text, /\/\/ \? -> llm "Array【<:27】infer"/)
 
-  // created at 来自 shape token：8 一致 / 3 early / 5 没有 CreatedAt
-  // （根 SourceFile 记 0；头部 TypeParameter 建在 `<` 的 6）
+  // created at 来自 shape token：10 一致 / 1 early / 5 没有 CreatedAt
+  // （根 SourceFile 记 0；头部 TypeParameter 建在 `<` 的 6；正文第一个名字的 TypeReference 建在名字收口的 13）
   assert.equal(result.check.available, true)
   assert.equal(result.check.total, 16)
-  assert.equal(result.check.ok, 8)
-  assert.equal(result.check.early, 3)
+  assert.equal(result.check.ok, 10)
+  assert.equal(result.check.early, 1)
   assert.equal(result.check.unknown, 5)
 })
 
@@ -134,6 +137,112 @@ test('模型输出缺节点：不写盘', async () => {
     /没给出合格的节点表/,
   )
   assert.equal(fs.existsSync(file.replace(/\.ts$/, '.infer')), false)
+})
+
+test('有效次不足（3 次里只 1 次合格）：不写盘', async () => {
+  const { root, file } = makeWorkspace()
+  const broken = NUMBERS.slice(0, 3)
+  const tool = createInferTool(
+    fakeContext(fakeLlm([
+      JSON.stringify(NUMBERS),
+      JSON.stringify(broken),
+      JSON.stringify(broken),
+    ])),
+    normalizeConfig({ root, retries: 0 }),
+    logger(),
+  )
+  await assert.rejects(
+    () => tool.execute({ case: 'success/types/alias-conditional-infer' }),
+    /有效判定/,
+  )
+  assert.equal(fs.existsSync(file.replace(/\.ts$/, '.infer')), false)
+})
+
+test('多次判定有分歧：那一行写 ?，交回 DSH 决策，decisions 补完', async (t) => {
+  if (!parserAvailable()) {
+    t.skip('build/ts 不存在：先跑 npm run build')
+    return
+  }
+  const { root, file } = makeWorkspace()
+  const infer = file.replace(/\.ts$/, '.infer')
+  // 同一个节点三次给出三个不同答案；其余节点三次一致。
+  const variant = (char) => NUMBERS.map((node) =>
+    (node.kind === 'TypeReference' && node.pos === 11 ? { ...node, char } : node))
+  const tool = createInferTool(
+    fakeContext(fakeLlm([
+      JSON.stringify(variant(14)),
+      JSON.stringify(variant(13)),
+      JSON.stringify(variant(21)),
+    ])),
+    normalizeConfig({ root }),
+    logger(),
+  )
+
+  const first = await tool.execute({ case: 'success/types/alias-conditional-infer' })
+  assert.equal(first.ok, false)
+  assert.equal(first.status, 'needs-decision')
+  assert.equal(first.runs, 3)
+  assert.equal(first.calls, 3)
+  assert.equal(first.nodes, 15)          // 15 个一致，1 个有分歧
+  assert.equal(first.check.unfilled, 1)
+  assert.equal(first.pending.length, 1)
+
+  const [pending] = first.pending
+  assert.equal(pending.id, 'TypeReference|11|12')
+  assert.deepEqual(pending.candidates.map((entry) => entry.char).sort((a, b) => a - b), [13, 14, 21])
+  assert.deepEqual(pending.votes.map((entry) => entry.run), [1, 2, 3])
+
+  const disputedText = fs.readFileSync(infer, 'utf8')
+  assert.ok(disputedText.includes('"> = T【␣:13】extends" -> llm ?'))
+  assert.equal(/TypeReference  pos=11  src=\[12,13\)[^\n]*llm "> = T/.test(disputedText), false)
+
+  const second = await tool.execute({
+    case: 'success/types/alias-conditional-infer',
+    decisions: { 'TypeReference|11|12': 13 },
+  })
+  assert.equal(second.ok, true)
+  assert.equal(second.status, 'decided')
+  assert.equal(second.calls, 0)
+  assert.equal(second.decided, 1)
+
+  const decidedText = fs.readFileSync(infer, 'utf8')
+  // created 也是 13：两个位置相同，只写一个上下文，不再有箭头。
+  assert.match(decidedText, /TypeReference  pos=11  src=\[12,13\)   \/\/ "> = T【␣:13】extends"\n/)
+  assert.equal(decidedText.includes('-> llm ?'), false)
+  assert.equal(second.check.unfilled, 0)
+})
+
+test('decisions：没有文件 / 清单外的节点都拒绝', async () => {
+  const { root } = makeWorkspace()
+  const tool = createInferTool(fakeContext(fakeLlm([JSON.stringify(NUMBERS)])), normalizeConfig({ root }), logger())
+
+  await assert.rejects(
+    () => tool.execute({ case: 'success/types/alias-conditional-infer', decisions: { 'TypeReference|11|12': 13 } }),
+    /先不传 decisions/,
+  )
+
+  await tool.execute({ case: 'success/types/alias-conditional-infer' })
+  await assert.rejects(
+    () => tool.execute({ case: 'success/types/alias-conditional-infer', decisions: { 'TypeReference|99|99': 13 } }),
+    /清单外/,
+  )
+  await assert.rejects(
+    () => tool.execute({ case: 'success/types/alias-conditional-infer', decisions: { 'TypeReference|11|12': 999 } }),
+    /越界/,
+  )
+})
+
+test('runs 可以降到 1：一次判定直接定稿', async (t) => {
+  if (!parserAvailable()) {
+    t.skip('build/ts 不存在：先跑 npm run build')
+    return
+  }
+  const { root } = makeWorkspace()
+  const tool = createInferTool(fakeContext(fakeLlm([JSON.stringify(NUMBERS)])), normalizeConfig({ root }), logger())
+  const result = await tool.execute({ case: 'success/types/alias-conditional-infer', runs: 1 })
+  assert.equal(result.ok, true)
+  assert.equal(result.calls, 1)
+  assert.equal(result.nodes, 16)
 })
 
 test('parseNumbers：缺节点 / 越界 / 多余节点都报出来', () => {

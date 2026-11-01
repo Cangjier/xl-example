@@ -125,7 +125,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,12)  text="Foo"
+   ├─ TypeReferenceShape  pos=8  src=[9,12)
+   │  └─ IdentifierShape  pos=8  src=[9,12)  text="Foo"
    └─ Symbol  src=[12,13)  text="["
 ```
 
@@ -138,7 +139,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,12)  text="Foo"
+   ├─ TypeReferenceShape  pos=8  src=[9,12)
+   │  └─ IdentifierShape  pos=8  src=[9,12)  text="Foo"
    ├─ Symbol  src=[12,13)  text="["
    └─ String  src=[13,...)
 ```
@@ -152,7 +154,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,12)  text="Foo"
+   ├─ TypeReferenceShape  pos=8  src=[9,12)
+   │  └─ IdentifierShape  pos=8  src=[9,12)  text="Foo"
    ├─ Symbol  src=[12,13)  text="["
    └─ String  src=[13,...)
       └─ ConstString  src=[14,15)  text="b"
@@ -167,7 +170,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,12)  text="Foo"
+   ├─ TypeReferenceShape  pos=8  src=[9,12)
+   │  └─ IdentifierShape  pos=8  src=[9,12)  text="Foo"
    ├─ Symbol  src=[12,13)  text="["
    └─ String  src=[13,...)
       └─ ConstString  src=[14,16)  text="ba"
@@ -182,7 +186,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,12)  text="Foo"
+   ├─ TypeReferenceShape  pos=8  src=[9,12)
+   │  └─ IdentifierShape  pos=8  src=[9,12)  text="Foo"
    ├─ Symbol  src=[12,13)  text="["
    └─ String  src=[13,...)
       └─ ConstString  src=[14,17)  text="bar"
@@ -197,7 +202,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,12)  text="Foo"
+   ├─ TypeReferenceShape  pos=8  src=[9,12)
+   │  └─ IdentifierShape  pos=8  src=[9,12)  text="Foo"
    ├─ Symbol  src=[12,13)  text="["
    └─ String  src=[13,18)
       └─ ConstString  src=[14,17)  text="bar"
@@ -212,7 +218,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,12)  text="Foo"
+   ├─ TypeReferenceShape  pos=8  src=[9,12)
+   │  └─ IdentifierShape  pos=8  src=[9,12)  text="Foo"
    ├─ Symbol  src=[12,13)  text="["
    ├─ String  src=[13,18)
    │  └─ ConstString  src=[14,17)  text="bar"
@@ -228,7 +235,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,12)  text="Foo"
+   ├─ TypeReferenceShape  pos=8  src=[9,12)
+   │  └─ IdentifierShape  pos=8  src=[9,12)  text="Foo"
    ├─ Symbol  src=[12,13)  text="["
    ├─ String  src=[13,18)
    │  └─ ConstString  src=[14,17)  text="bar"

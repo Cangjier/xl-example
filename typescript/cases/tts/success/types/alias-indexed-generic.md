@@ -125,7 +125,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,12)  text="Foo"
+   ├─ TypeReferenceShape  pos=8  src=[9,12)
+   │  └─ IdentifierShape  pos=8  src=[9,12)  text="Foo"
    └─ Symbol  src=[12,13)  text="["
 ```
 
@@ -138,7 +139,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,12)  text="Foo"
+   ├─ TypeReferenceShape  pos=8  src=[9,12)
+   │  └─ IdentifierShape  pos=8  src=[9,12)  text="Foo"
    ├─ Symbol  src=[12,13)  text="["
    └─ Common  src=[13,14)  text="K"
 ```
@@ -152,7 +154,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,12)  text="Foo"
+   ├─ TypeReferenceShape  pos=8  src=[9,12)
+   │  └─ IdentifierShape  pos=8  src=[9,12)  text="Foo"
    ├─ Symbol  src=[12,13)  text="["
    ├─ Common  src=[13,14)  text="K"
    └─ Symbol  src=[14,15)  text="]"
@@ -167,7 +170,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,12)  text="Foo"
+   ├─ TypeReferenceShape  pos=8  src=[9,12)
+   │  └─ IdentifierShape  pos=8  src=[9,12)  text="Foo"
    ├─ Symbol  src=[12,13)  text="["
    ├─ Common  src=[13,14)  text="K"
    ├─ Symbol  src=[14,15)  text="]"

@@ -1,0 +1,7 @@
+SourceFile  pos=0  src=[0,16)
+└─ TypeAliasDeclaration  pos=0  src=[0,15)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ TypeReference  pos=8  src=[9,15)
+      └─ FirstNode  pos=8  src=[9,15)
+         ├─ Identifier  pos=8  src=[9,11)  text="NS"
+         └─ Identifier  pos=12  src=[12,15)  text="Foo"

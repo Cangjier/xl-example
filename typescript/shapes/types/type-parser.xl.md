@@ -553,6 +553,12 @@ if (this.Index >= this.Limit) {
   throw this.MakeError("类型表达式意外结束");
 }
 const unit = this.Units[this.Index];
+// 名字收口那一格已经建好的类型引用（TypeAliasBodyPossibleShape）：复用它，只把后面的 `.` / `<`
+// 接在它身上。这样别名收口重解析时不会重建一棵新子树，`CreatedAt` 也留在名字那一格。
+if (unit instanceof TypeReferenceShape) {
+  this.Index++;
+  return this.GrowTypeReference(unit);
+}
 if (unit instanceof Symbol) {
   const text = unit.TempToString();
   if (text === "(") {
@@ -805,6 +811,51 @@ if (this.PeekSymbol() === "<") {
   end = tail.End;
 }
 return this.Node(new TypeReferenceShape(this.Template), TypeShape.PosOfNode(name), name.SourceRange.Start, end, children);
+```
+
+## private method GrowTypeReference:(reference:TypeReferenceShape)=>Token
+
+```ts
+// 引用已经建好：`A.B` 把最左的名字换成 QualifiedName，`A<…>` 把实参挂在引用下面。
+// 两种情况都只改这颗形状本身，不新建 TypeReference。
+let node = reference;
+while (true) {
+  this.SkipTrivia();
+  if (this.PeekSymbol() !== ".") {
+    break;
+  }
+  this.Index++;
+  this.SkipTrivia();
+  if (this.Index >= this.Limit) {
+    throw this.MakeError("限定名缺少右半");
+  }
+  const rightIndex = this.Index;
+  const right = this.Units[rightIndex];
+  if (!(right instanceof Common) || !OperandUtil.IsIdentifier(right.TempToString())) {
+    throw this.MakeError("限定名缺少右半");
+  }
+  this.Index++;
+  const rightNode = IdentifierShape.FromCommon(right, this.PosOf(rightIndex));
+  const base = node.Data.length > 0 ? node.Data[0] : null;
+  if (base === null) {
+    throw this.MakeError("限定名缺少左半");
+  }
+  const children:Array<Token> = [base];
+  const qualified = this.Node(new QualifiedNameShape(this.Template), TypeShape.PosOfNode(base), base.SourceRange.Start, rightNode.SourceRange.End, children);
+  qualified.Add(rightNode);
+  node.Data.splice(0, 1, qualified);
+  qualified.Parent = node;
+  node.SourceRange.End = rightNode.SourceRange.End;
+}
+this.SkipTrivia();
+if (this.PeekSymbol() === "<") {
+  const tail = this.ParseArguments();
+  for (const item of tail.Arguments) {
+    node.Add(item);
+  }
+  node.SourceRange.End = tail.End;
+}
+return node;
 ```
 
 ## private method ParseEntityName:()=>Token

@@ -1,0 +1,15 @@
+```ts
+type A = NS.Foo
+```
+
+```text
+[0-15] |type A = NS.Foo⏎|
+```
+
+SourceFile  pos=0  src=[0,16)   // "【t:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,15)   // "type A【␣:6】= NS."
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【␣:6】= NS."
+   └─ TypeReference  pos=8  src=[9,15)   // "= NS【.:11】Foo"
+      └─ FirstNode  pos=8  src=[9,15)   // ? -> llm "= NS【.:11】Foo"
+         ├─ Identifier  pos=8  src=[9,11)  text="NS"   // "= NS【.:11】Foo"
+         └─ Identifier  pos=12  src=[12,15)  text="Foo"   // ? -> llm "NS.Foo【⏎:15】"

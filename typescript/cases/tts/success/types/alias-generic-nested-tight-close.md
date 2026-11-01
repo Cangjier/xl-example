@@ -554,7 +554,8 @@ SourceFileShape  pos=-  src=[0,...)
    │           └─ IdentifierShape  pos=29  src=[29,30)  text="T"
    ├─ Symbol  src=[33,34)  text="="
    ├─ WrapSymbol  src=[34,35)  text=" "
-   ├─ Common  src=[35,36)  text="T"
+   ├─ TypeReferenceShape  pos=34  src=[35,36)
+   │  └─ IdentifierShape  pos=34  src=[35,36)  text="T"
    └─ WrapSymbol  src=[36,37)  text="\n"
 ```
 

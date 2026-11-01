@@ -39,6 +39,30 @@
 TypeParameter 7→6）；这 11 个用例的 `.md` 也重新生成，char 6/7 现在能看到那颗增量建出的空参数。
 下面的统计与附录仍是 **2026-10-31 的基线**。
 
+## 2026-11-01 修正：正文第一个名字按名字收口建出 TypeReference
+
+`alias-conditional-infer` 的检查类型 `T` 原来读作 created=21 / llm=13（early -8）：实现要等
+`extends` 收口才在 `TypeAliasChainPossibleShape` 里整段 `ParseCompleteType`，两行（`T` 的
+TypeReference 与 Identifier）都被盖到 21。这次让实现去满足 prompt 规则 1（「TypeReference 取类型名
+收口的那一格」）：
+
+1. **新候选 `TypeAliasBodyPossibleShape`（P0 相关的做法）。** 放进 alias 自己的 `CatalogGuide`，判定
+   与建出都在同一格：正文（顶层 `=` 之后）第一个代码单元是刚收口的普通名字时 Accept，就地建
+   `TypeReference`（名字作 Identifier，`CreatedAt` = 名字收口格）。正文还没开始时 Uncertain，正文已经
+   有别的代码单元就 Reject——函数类型 / 条件类型的候选只在各自那一格 Accept，三个候选不会同时活着。
+2. **名字之后的内容继续长在这颗引用上。** `TypeAliasChainPossibleShape` 在 `extends` 那一格复用已建好的
+   引用（引用之后只剩 trivia 时），不再重解析；`. ` / `<` 由 `TypeParser.GrowTypeReference` 接在引用上
+   （`ParsePrimary` 认已建好的引用），`[` / `|` / `&` 由收口时的 `ParseAlias` 复用同一颗引用。
+   `HasBuiltType` 把裸 TypeReference 排除在外，正文的其余写法仍旧走 close 兜底。
+3. **没有动 CreatedRevisionAt。** 这次是让实现真的在那一格建出来，`CreatedAt` 就是名字收口格，不是修订。
+
+结果：`alias-conditional-infer` 的 `T` 由 created=21 变为 13，两行都是 created=13 / llm=13。
+`alias-reference`、`alias-generic-default`、`alias-generic-nested-tight-close`、`alias-intersection`、
+`alias-indexed-*` 等正文以名字开头的用例跟着一致（`.infer` 的 created 列随之刷新，`.ast` 不变）。
+限定名（`NS.Foo`）之后的 `.` 是这次新接上的分支，加了 `types/alias-qualified-body` 一条用例覆盖它。
+
+验证：`tts:cases` 182/182、`infer:test` 9/9、`review:test` 13/13、`xl check` 0 error。
+
 ## 1. 生成过程与工具修复
 
 ### 1.1 修掉的 bug：TS 区间别名与 canonical 名字不一致
@@ -155,14 +179,16 @@ only-at-signout: StringKeyword|13|14
 | 机制 | 例（expected → actual） |
 | --- | --- |
 | 尖括号里等到配平 `>` | `alias-generic-nested-tight-close`：`Array`/`T` 的 Identifier 都在 32（`>`）才出现 |
-| 条件类型的被检类型等到 `extends` | `alias-conditional-infer`：`T` 的 TypeReference 14 → 21、Identifier 13 → 21 |
+| 条件类型的被检类型等到 `extends` | 已修正：`alias-conditional-infer` 的 `T` 由 21 变为 13（名字收口），见开头 2026-11-01 修正 |
 | 函数类型参数等到 `=>` | `alias-asserts`：参数 `x` 11 → 23；`alias-fn-type`：参数 `a` 11 → 22 |
 | `infer` 等到 `>` | `alias-conditional-infer`：InferType 33 → 35 |
 | `infer` 的模板头等到反引号 | `alias-template-infer`：TemplateHead 26 → 34 |
 | `TypeParameter` 取 `<`（prompt 规则 4） | 已修正：参数在 `<` / 顶层 `,` 那一格增量建出；`alias-conditional-infer` 现在 6 vs 6 |
 
 这些节点自身的 kind 在记号收口时其实已经确定，所以从"最早确定"的角度看可以更早建；
-代价是后面可能需要把它们重新挂到 `ConditionalType` / `FunctionType` 下。
+代价是后面可能需要把它们重新挂到 `ConditionalType` / `FunctionType` 下。检查类型这一格已经这么做了
+（`TypeAliasBodyPossibleShape` 建出引用，`TypeAliasChainPossibleShape` 在 `extends` 复用），
+剩下的函数类型参数、实参表收口仍是同一类缺口。
 尖括号那一类还受 `<` 与小于号的歧义限制，属于已知的设计取舍（配平后才收口）。
 
 `TypeParameter` 这一条曾是**规格与实现互相矛盾**：`dsh-case-infer` 的 prompt 规则 4 说"由列表转换

@@ -149,7 +149,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,14)  text="Array"
+   ├─ TypeReferenceShape  pos=8  src=[9,14)
+   │  └─ IdentifierShape  pos=8  src=[9,14)  text="Array"
    └─ Symbol  src=[14,15)  text="<"
 ```
 
@@ -162,7 +163,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,14)  text="Array"
+   ├─ TypeReferenceShape  pos=8  src=[9,14)
+   │  └─ IdentifierShape  pos=8  src=[9,14)  text="Array"
    ├─ Symbol  src=[14,15)  text="<"
    └─ Common  src=[15,16)  text="s"
 ```
@@ -176,7 +178,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,14)  text="Array"
+   ├─ TypeReferenceShape  pos=8  src=[9,14)
+   │  └─ IdentifierShape  pos=8  src=[9,14)  text="Array"
    ├─ Symbol  src=[14,15)  text="<"
    └─ Common  src=[15,17)  text="st"
 ```
@@ -190,7 +193,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,14)  text="Array"
+   ├─ TypeReferenceShape  pos=8  src=[9,14)
+   │  └─ IdentifierShape  pos=8  src=[9,14)  text="Array"
    ├─ Symbol  src=[14,15)  text="<"
    └─ Common  src=[15,18)  text="str"
 ```
@@ -204,7 +208,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,14)  text="Array"
+   ├─ TypeReferenceShape  pos=8  src=[9,14)
+   │  └─ IdentifierShape  pos=8  src=[9,14)  text="Array"
    ├─ Symbol  src=[14,15)  text="<"
    └─ Common  src=[15,19)  text="stri"
 ```
@@ -218,7 +223,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,14)  text="Array"
+   ├─ TypeReferenceShape  pos=8  src=[9,14)
+   │  └─ IdentifierShape  pos=8  src=[9,14)  text="Array"
    ├─ Symbol  src=[14,15)  text="<"
    └─ Common  src=[15,20)  text="strin"
 ```
@@ -232,7 +238,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,14)  text="Array"
+   ├─ TypeReferenceShape  pos=8  src=[9,14)
+   │  └─ IdentifierShape  pos=8  src=[9,14)  text="Array"
    ├─ Symbol  src=[14,15)  text="<"
    └─ Common  src=[15,21)  text="string"
 ```
@@ -246,7 +253,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,14)  text="Array"
+   ├─ TypeReferenceShape  pos=8  src=[9,14)
+   │  └─ IdentifierShape  pos=8  src=[9,14)  text="Array"
    ├─ Symbol  src=[14,15)  text="<"
    ├─ Common  src=[15,21)  text="string"
    └─ Symbol  src=[21,22)  text=">"
@@ -261,7 +269,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,14)  text="Array"
+   ├─ TypeReferenceShape  pos=8  src=[9,14)
+   │  └─ IdentifierShape  pos=8  src=[9,14)  text="Array"
    ├─ Symbol  src=[14,15)  text="<"
    ├─ Common  src=[15,21)  text="string"
    ├─ Symbol  src=[21,22)  text=">"

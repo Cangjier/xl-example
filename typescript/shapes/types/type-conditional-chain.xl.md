@@ -365,6 +365,59 @@ if (!(unit instanceof Symbol) || !unit.Closed) {
 return unit.Is("|") || unit.Is("&");
 ```
 
+## static method BodyStart:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>int
+
+```ts
+// 类型体第一个代码单元的下标（没有 `=` 或头部没配平时是 -1）。
+// 一轮 compute 里三个候选都要问这一件事，所以按 Data 长度记进 CatalogGuide 的 share 空间：
+// 同一轮只扫一遍；Data 一长（下一格）就换 key，不会读到旧长度上的结果。
+const key = "TypeAliasBodyStart:" + units.length;
+const cached = cache.GetShare<number>(key);
+if (cached !== null) {
+  return cached;
+}
+const equals = TypeConditionalUtil.TopLevelEquals(units, tokenIndex + 1);
+let start = -1;
+if (equals >= 0 && TypeConditionalUtil.Balanced(units, 0, equals)) {
+  start = TypeConditionalUtil.FirstCodeIndex(units, equals + 1, tokenIndex + 1);
+}
+cache.SetShare(key, start);
+return start;
+```
+
+## static method IsBodyName:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
+
+```ts
+// 别名正文的第一个代码单元是刚收口的普通名字：这一刻它只能是类型引用（`T` / `Foo`），
+// 后面的 `.` / `<` / `[` / `extends` 都只是在这颗引用上继续长，kind 不会再变。
+// 判据只看 tokenIndex 及之前的单元，不看后面。
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const unit = units[tokenIndex];
+if (!(unit instanceof Common) || !unit.Closed) {
+  return false;
+}
+if (TypeConditionalUtil.BodyStart(units, tokenIndex, cache) !== tokenIndex) {
+  return false;
+}
+const text = unit.TempToString();
+if (TypeConditionalUtil.IsPrefixText(text) || TypeConditionalUtil.IsKeywordText(text)) {
+  return false;
+}
+return OperandUtil.IsIdentifier(text) && !OperandUtil.IsKeyword(text);
+```
+
+## static method HasBodyCode:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
+
+```ts
+// 类型体是否已经有代码单元：有了就说明「第一个名字」那一格已经过去，早建候选要让位。
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+return TypeConditionalUtil.BodyStart(units, tokenIndex, cache) >= 0;
+```
+
 ## static method IsOperatorShape:(unit:Token)=>bool
 
 ```ts
@@ -690,6 +743,10 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
   return ShapeStates.Reject;
 }
+// 正文第一个名字收口那一格让位给 TypeAliasBodyPossibleShape（它只在这一格 Accept）。
+if (TypeConditionalUtil.IsBodyName(units, tokenIndex, cache)) {
+  return ShapeStates.Reject;
+}
 if (TypeConditionalUtil.IsAliasEnd(units, tokenIndex)) {
   return ShapeStates.Reject;
 }
@@ -779,8 +836,33 @@ if (angleOpen >= 0) {
   equals = TypeConditionalUtil.TopLevelEquals(units, tokenIndex);
 }
 const start = equals + 1;
-const slice = units.slice(start, tokenIndex);
-const check = TypeParser.ParseCompleteType(slice, slice.length, host.Template);
+// 正文第一个名字收口时 TypeAliasBodyPossibleShape 已经把检查类型建好，这里直接复用那颗引用：
+// 重解析会重建一棵新的子树，把它的 CreatedAt 推到 `extends` 这一格。
+// 只有「引用之后到 `extends` 之间只剩 trivia」才说明整段检查类型就是它；
+// 其余写法（`T | U extends …`、`T["a"] extends …`）仍旧整段交给类型文法。
+let built:Token | null = null;
+let builtIndex = -1;
+for (let at = start; at < tokenIndex; at++) {
+  if (units[at].IsTriviaToken) {
+    continue;
+  }
+  if (units[at] instanceof TypeShape) {
+    built = units[at];
+    builtIndex = at;
+  }
+  break;
+}
+if (built !== null) {
+  for (let at = builtIndex + 1; at < tokenIndex; at++) {
+    if (!units[at].IsTriviaToken) {
+      built = null;
+      break;
+    }
+  }
+}
+const check = built !== null
+  ? built
+  : TypeParser.ParseCompleteType(units.slice(start, tokenIndex), tokenIndex - start, host.Template);
 const conditional = new ConditionalTypeShape(host.Template);
 conditional.Stage = 0;
 conditional.SegmentStart = 1;

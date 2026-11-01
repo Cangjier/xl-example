@@ -24,18 +24,45 @@ case_infer
   case       用例 id（相对 typescript/cases/tts，如 success/types/alias-conditional-infer）
              或 .ts 路径（相对仓库根）
   overwrite  默认 false：已有 .infer 就拒绝，避免悄悄覆盖上一次的判定
+  runs       判定几次，默认 3（1..9）
+  decisions  { "<Kind|pos|start>": <char> }：把 runs 有分歧的节点定下来；这条路径不调用模型
 ```
 
-返回：`{ ok, file, model, calls, nodes, gaps, check, text }`。`text` 是对拍表；`check.rows` 里每行带
-`status`（`ok` / `late +N` / `early -N` / `no-created` / `no-shape` / `unfilled`）、`llm`、`created`。
+返回：`{ ok, status, file, model, runs, calls, nodes, pending, check, text }`。
+`status` 是 `written` / `needs-decision` / `decided`；`text` 是对拍表；
+`check.rows` 里每行带 `status`（`ok` / `late +N` / `early -N` / `no-created` / `never` / `unfilled`）、
+`llm`、`created`。
 
 流程：
 
 1. 生成骨架，`created at` 直接从 shape token 的 created 位置填好（`CreatedRevisionAt` 优先，其次 `CreatedAt`；都没有就记 `?`）；抽出节点清单（kind / pos / src 起点 / src 终点）；
-2. 把「源码 + 逐字表 + 节点清单 + 规则」发给默认模型，**只要 llm determined 的数字**；
-3. 校验：每个节点恰好一次、kind/pos/start 原样、`char` 在 `0..N-1`；不合格就带着问题重试（`retries`），仍不合格**不写盘**；
-4. 填回骨架 → 补两个位置的上下文 → 写 `.infer`；
-5. 用 `build/ts` 取 shape token 的 `created at`，逐节点和 `llm determined` 对拍（和 `case-infer --check` 同一套）。
+2. 把「源码 + 逐字表 + 节点清单 + 口径规则」发给默认模型，**只要 llm determined 的数字**，跑 `runs` 次；
+3. 逐节点投票：所有有效次一致 → 采纳；有分歧 → 该行写 `-> llm ?`，把这些节点放进 `pending` 返回（工具不替任何人选）；
+4. 校验：每次输出里每个节点恰好一次、kind/pos/start 原样、`char` 在 `0..N-1`；不合格就带着问题重试（`retries`），某一次仍不合格就不算有效次；
+5. 填回骨架 → 补两个位置的上下文 → 写 `.infer` → 用 `build/ts` 的 created at 对拍；
+6. `decisions` 再次进来时：读已有 `.infer`，把 DSH 选定的字符填回去，写盘、对拍，不调用模型。
+
+## 多判定与决策
+
+一次判定不可靠：同一个节点，`deepseek-flash` 在不同用例里给过 12 / 13 / 14（`T` 的 TypeReference），
+三个数都能自圆其说。所以默认跑 3 次，逐节点投票：
+
+- 3 次同一个数 → 直接定稿；
+- 有分歧 → 文件先写 `-> llm ?`（「还没判」的合法状态），`pending` 里每个节点带 `id`、
+  每一票的 `char` 和它落在源码哪里的 `at`、以及按票数排好的 `candidates`；
+- 由 DSH（调用方）定：`case_infer { case, decisions: { "TypeReference|11|12": 13 } }`。
+  这条路径不调用模型，只把字符填回文件再对拍；`unfilled === 0` 时 `ok` 才是 true。
+
+`runs: 1` 就是旧行为（一次定稿）；`runs >= 2` 时至少要 2 次有效判定才定稿，
+所有次都不合格（或只 1 次有效）仍然整次失败、不写盘。
+
+## 判定口径
+
+prompt 的规则 1–2 把口径写死：**取节点自己的名字/关键字收口那一格**，不等构造写完，
+也不取下一个记号的首字符。依据是 `typescript/cases/tts/infer-review.md` §3.2B：
+`type A<T> = T extends X ? Y : Z` 里 `T` 的 TypeReference 该在 13（名字 `T` 收口），
+不是 21（父节点等 `extends` 收口，实现原先就是这样），也不是 14（模型取了 `extends` 首字母）。
+实现已经在名字收口那一格建出这颗引用（`TypeAliasBodyPossibleShape`），对拍里它现在是 `ok`。
 
 ## 配置
 
@@ -52,6 +79,7 @@ case_infer
         maxTokens: 8192
         timeoutMs: 120000
         retries: 1
+        runs: 3             # 判定几次；有分歧的节点交回 DSH 决策
 ```
 
 ## 模型与代价
@@ -61,7 +89,8 @@ case_infer
 - **推理档位**：生成前先问 `llm.resolveModelInfo(provider, model)` 拿到了哪些 `reasoningEffort`，
   优先取 `off`，没有就取第一个（最省的）。这个任务只要一份数字表，长推理纯亏——实测
   `deepseek-flash` 用默认档位会把 `maxTokens` 全花在 reasoning 上，一个字的正文都不剩。
-- 一次生成 = 1 次模型调用（输出不合格最多再重试 `retries` 次，默认 1）。
+- 一次生成 = `runs` 次模型调用（每次输出不合格最多再重试 `retries` 次，默认 1）；
+  `runs: 3`（默认）就是 3 次调用，分歧节点再由 DSH 用 `decisions` 补（那次 0 调用）。
 - 默认 `maxTokens: 8192`、`timeoutMs: 120000`；大用例可以往上调。
 
 ## 安装

@@ -113,7 +113,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,11)  text="A1"
+   ├─ TypeReferenceShape  pos=8  src=[9,11)
+   │  └─ IdentifierShape  pos=8  src=[9,11)  text="A1"
    └─ WrapSymbol  src=[11,12)  text=" "
 ```
 
@@ -126,7 +127,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,11)  text="A1"
+   ├─ TypeReferenceShape  pos=8  src=[9,11)
+   │  └─ IdentifierShape  pos=8  src=[9,11)  text="A1"
    ├─ WrapSymbol  src=[11,12)  text=" "
    └─ Symbol  src=[12,13)  text="&"
 ```
@@ -140,7 +142,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,11)  text="A1"
+   ├─ TypeReferenceShape  pos=8  src=[9,11)
+   │  └─ IdentifierShape  pos=8  src=[9,11)  text="A1"
    ├─ WrapSymbol  src=[11,12)  text=" "
    ├─ Symbol  src=[12,13)  text="&"
    └─ WrapSymbol  src=[13,14)  text=" "
@@ -155,7 +158,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,11)  text="A1"
+   ├─ TypeReferenceShape  pos=8  src=[9,11)
+   │  └─ IdentifierShape  pos=8  src=[9,11)  text="A1"
    ├─ WrapSymbol  src=[11,12)  text=" "
    ├─ Symbol  src=[12,13)  text="&"
    ├─ WrapSymbol  src=[13,14)  text=" "
@@ -171,7 +175,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,11)  text="A1"
+   ├─ TypeReferenceShape  pos=8  src=[9,11)
+   │  └─ IdentifierShape  pos=8  src=[9,11)  text="A1"
    ├─ WrapSymbol  src=[11,12)  text=" "
    ├─ Symbol  src=[12,13)  text="&"
    ├─ WrapSymbol  src=[13,14)  text=" "
@@ -187,7 +192,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,11)  text="A1"
+   ├─ TypeReferenceShape  pos=8  src=[9,11)
+   │  └─ IdentifierShape  pos=8  src=[9,11)  text="A1"
    ├─ WrapSymbol  src=[11,12)  text=" "
    ├─ Symbol  src=[12,13)  text="&"
    ├─ WrapSymbol  src=[13,14)  text=" "
