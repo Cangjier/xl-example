@@ -61,6 +61,9 @@ n=4000 时相差约 **340 倍**，曲线从二次变平。
 - compute/build过程中发生的异常禁止catch吃掉，这些异常是possible诊断，是用户期望看到的信息。
 - possible/build禁止跳跃式处理（除了trivia），如 shape1, basic token1, shape2, ...; 此时basic token1尚未被消费，必须前置basic token确定形状后，才能处理后续。
 
+### shape tokn关键字段
+CreatedAt 必须是实际创建位置
+
 ### 其他注意点
 - **越界**：`host.Data[tokenIndex]` 不存在 → 返回 `Nothing`（调用方可能按旧长度遍历）。
 - **淘汰**：逐个还活着的候选调 `ComputeByIndex`；`Reject` 从 `Candidates` 里去掉（`PossibleShapes` 数组禁止修改），`Accept` 与 `Uncertain` 在这一次判定里同义——都只表示「还活着」。这一步只淘汰，不定案。
