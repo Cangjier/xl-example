@@ -1,0 +1,24 @@
+SourceFile  pos=0  src=[0,81)
+├─ FirstStatement  pos=0  src=[0,16)
+│  └─ VariableDeclarationList  pos=0  src=[0,15)
+│     └─ VariableDeclaration  pos=3  src=[4,15)
+│        ├─ Identifier  pos=3  src=[4,11)  text="a\\u0062"
+│        └─ FirstLiteralToken  pos=13  src=[14,15)  text="1"
+├─ FirstStatement  pos=16  src=[17,32)
+│  └─ VariableDeclarationList  pos=16  src=[17,31)
+│     └─ VariableDeclaration  pos=20  src=[21,31)
+│        ├─ Identifier  pos=20  src=[21,27)  text="\\u{63}"
+│        └─ FirstLiteralToken  pos=29  src=[30,31)  text="2"
+├─ FirstStatement  pos=32  src=[33,58)
+│  └─ VariableDeclarationList  pos=32  src=[33,57)
+│     └─ VariableDeclaration  pos=36  src=[37,57)
+│        ├─ Identifier  pos=36  src=[37,38)  text="d"
+│        └─ BinaryExpression  pos=40  src=[41,57)
+│           ├─ Identifier  pos=40  src=[41,48)  text="a\\u0062"
+│           ├─ PlusToken  pos=48  src=[49,50)  text="+"
+│           └─ Identifier  pos=50  src=[51,57)  text="\\u{63}"
+└─ FirstStatement  pos=58  src=[59,80)
+   └─ VariableDeclarationList  pos=58  src=[59,79)
+      └─ VariableDeclaration  pos=62  src=[63,79)
+         ├─ Identifier  pos=62  src=[63,75)  text="\\u0065\\u0066"
+         └─ Identifier  pos=77  src=[78,79)  text="d"
