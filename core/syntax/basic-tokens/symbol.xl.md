@@ -131,7 +131,7 @@ if ((value === "+" || value === "-")
     && last.IsExponentPrefix()) {
   return BranchStates.Undo;
 }
-if (value === "\\" && Common.IsUnicodeEscapeStart(buffer, index, template, value)) {
+if (Common.IsEscapeBackslash(template, value)) {
   return BranchStates.Undo;
 }
 if (!template.SymbolTemplate.IsSymbol(value)) {

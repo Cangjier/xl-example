@@ -28,23 +28,30 @@ super(Template);
 ## method IsAppend:(buffer:SourceRange, index:int, value:string)=>bool
 
 ```ts
-if (Common.IsUnicodeEscapeStart(buffer, index, this.Template, value)) {
-  return true;
-}
 if (this.Template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
-  const digits = this.UnicodeBraceEscapeDigits();
-  if (digits === 0 && value === "{") {
-    return true;
+  const step = this.UnicodeEscapeStep();
+  if (step === "u") {
+    return value === "u";
   }
-  if (digits > 0) {
-    if (value === "}") {
+  if (step === "hex") {
+    const digits = this.UnicodeBraceEscapeDigits();
+    if (digits === 0 && value === "{") {
       return true;
     }
-    if (!this.Template.SymbolTemplate.IsHexDigit(value)) {
-      return false;
+    if (digits > 0) {
+      if (value === "}") {
+        return true;
+      }
+      if (!this.Template.SymbolTemplate.IsHexDigit(value)) {
+        return false;
+      }
+      return this.UnicodeBraceEscapeValue() * 16 <= Common.MaxUnicodeCodePoint();
     }
-    return this.UnicodeBraceEscapeValue() * 16 <= Common.MaxUnicodeCodePoint();
+    return this.Template.SymbolTemplate.IsHexDigit(value);
   }
+}
+if (Common.IsEscapeBackslash(this.Template, value)) {
+  return true;
 }
 return !(this.Template.SymbolTemplate.IsSymbol(value) || this.Template.SymbolTemplate.IsWhiteSpace(value));
 ```
@@ -55,49 +62,55 @@ return !(this.Template.SymbolTemplate.IsSymbol(value) || this.Template.SymbolTem
 return 0x10FFFF;
 ```
 
-## static method IsUnicodeEscapeStart:(buffer:SourceRange, index:int, template:Template, value:string)=>bool
+## static method IsEscapeBackslash:(template:Template, value:string)=>bool
 
 ```ts
 if (!template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
   return false;
 }
-if (value !== "\\") {
-  return false;
+return value === "\\";
+```
+
+## method UnicodeEscapeStep:()=>string
+
+```ts
+if (!this.HasBackslash) {
+  return "";
 }
-const whole = SourceRange.Whole(buffer.Document!);
-const count = whole.EndIndex;
-if (index + 2 >= count) {
-  return false;
+const text = this.TempToString();
+const backslash = text.lastIndexOf("\\");
+if (backslash < 0) {
+  return "";
 }
-if (whole.At(index + 1) !== "u") {
-  return false;
+const rest = text.substring(backslash + 1);
+if (rest.length === 0) {
+  return "u";
 }
-if (whole.At(index + 2) === "{") {
-  let at = index + 3;
-  let digits = 0;
-  let value = 0;
-  while (at < count && template.SymbolTemplate.IsHexDigit(whole.At(at))) {
-    value = value * 16 + Number.parseInt(whole.At(at), 16);
-    digits++;
-    at++;
-    if (value > Common.MaxUnicodeCodePoint()) {
-      return false;
+if (rest[0] !== "u") {
+  return "";
+}
+const after = rest.substring(1);
+if (after.length === 0) {
+  return "hex";
+}
+if (after[0] === "{") {
+  const body = after.substring(1);
+  if (body.indexOf("}") >= 0) {
+    return "";
+  }
+  for (let at = 0; at < body.length; at++) {
+    if (!this.Template.SymbolTemplate.IsHexDigit(body[at])) {
+      return "";
     }
   }
-  if (digits === 0 || at >= count || whole.At(at) !== "}") {
-    return false;
-  }
-  return true;
+  return "hex";
 }
-if (index + 6 > count) {
-  return false;
-}
-for (let offset = 2; offset <= 5; offset++) {
-  if (!template.SymbolTemplate.IsHexDigit(whole.At(index + offset))) {
-    return false;
+for (let at = 0; at < after.length; at++) {
+  if (!this.Template.SymbolTemplate.IsHexDigit(after[at])) {
+    return "";
   }
 }
-return true;
+return after.length < 4 ? "hex" : "";
 ```
 
 ## method UnicodeBraceEscapeDigits:()=>int
@@ -551,7 +564,7 @@ if (last instanceof Common && !last.Closed) {
   }
 }
 if ((template.SymbolTemplate.IsSymbol(value) || template.SymbolTemplate.IsWhiteSpace(value))
-    && !Common.IsUnicodeEscapeStart(buffer, index, template, value)) {
+    && !Common.IsEscapeBackslash(template, value)) {
   return BranchStates.Undo;
 }
 if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
