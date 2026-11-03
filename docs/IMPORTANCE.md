@@ -18,12 +18,16 @@
 语法层主要是shape，possible，end。shape是继承于ShapeToken的形状，对标ts的形状。possible是候选，当只有一个候选时说明此时形状完全确定，即可调用build创建形状。end是终结候选，当shape完成时，end将关闭shape，表明shape信息已然完整。
 shape和possible/end的关联通过catalog guide表达，当baisc token发生关闭或者bracket被创建时，即会触发possible/end。
 
+### basic token规范
+- basic token中process禁止读取buffer end之后的字符。
+
 ### 增量创建形状和全量创建形状
 possible/end时形状创建和关闭的机制，但落地过程中主要有两种形式，分别是增量创建形状和全量创建形状。增量创建形状是指逐字增量状态机，每当一个basic token确定时，形状候选将会逐步收敛，直至收敛成唯一形状，该形式是主要方案。全量创建形状是指一次性基于所有basic tokens进行创建形状，该形式是备选方案。
 
 ### 增量创建形状
 当basic token关闭时，将会触发possible compute/build，compute/build时将会从possible cache中get state，compute/build完成将会set state到possible cache。如果多个possible存在共同状态，则可以get share/set share到possible cache。
 state和share的区别是：state是面向每一个possible的独立空间(compute/build用同一套数据)，share是多个possible的共享空间。并且state将在会build后reset，而share不会。
+需要注意的是，state和share消费者是possible/end。basic token不是消费者。
 
 ### 逐字ast树
 当我们需要测试验证增量创建形状时，可以每一个字符打印ast树。如果第n个字符形状已经确定，但是ast树却没有创建形状，则说明增量创建形状没有处理到该场景。
@@ -38,7 +42,7 @@ state和share的区别是：state是面向每一个possible的独立空间(compu
 - 其他情况，则走`Reload Message`
 
 ### cache重要性
-
+需要注意的是，此处cache主要针对possible，不包括basic token。
 ```text
 不用 cache：500 → 3.80ms / 1000 → 6.92ms / 2000 → 27.85ms / 4000 → 112.73ms   （n 翻倍，耗时 ×4）
 用 cache  ：500 → 0.31ms / 1000 → 0.14ms / 2000 → 0.19ms / 4000 → 0.33ms       （每次只扫新增单元）
@@ -53,11 +57,12 @@ n=4000 时相差约 **340 倍**，曲线从二次变平。
 - AST 节点约定由 `ParseFromShape(shape)` 从关闭后的 shape 产出。
 
 ### possible 质量标准
-质量等级为：差/一般/好
+质量等级为：差/一般/好。需要注意的是，此处行为规范不涉及basic token。
 - compute/build 如果每轮都进行寻找/遍历，则质量等级为差。解决思路：复用cache，将寻找的结果记录到cache，便于下次直接复用。
 - 如果可以增量创建形状，但使用全量创建形状，则质量等级为差。
 
 ### possible compute/build 行为规范
+需要注意的是，此处行为规范不涉及basic token。
 - 只允许查看tokenIndex之前，禁止查看tokenIndex之后，因为此时tokenIndex之后的数据不一定准备好。（包括过程中使用的工具函数）
 - compute/build过程中发生的异常禁止catch吃掉，这些异常是possible诊断，是用户期望看到的信息。
 - possible/build禁止跳跃式处理（除了trivia），如 shape1, basic token1, shape2, ...; 此时basic token1尚未被消费，必须前置basic token确定形状后，才能处理后续（除了trival类型）。
