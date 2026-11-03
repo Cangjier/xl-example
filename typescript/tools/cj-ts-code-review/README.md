@@ -37,12 +37,35 @@ code_review
   outPath 报告落盘位置（相对仓库根）。默认不写，只在返回值里给报告
 ```
 
-返回：`{ ok, rules, stages, files, skipped, calls, counts, blocking, findings, report, outPath }`。
+返回：`{ ok, rules, stages, files, skipped, calls, counts, excludedCount, excluded, blocking, findings, report, outPath }`。
 `ok` 只表示「这次审查跑完了」，**结论看 `counts.P0` / `blocking`**。
 
 每条 finding 必须同时满足：`rule` 在清单里、`file` 在本批里、`line` 真实存在、
 `snippet` **逐字出现在那一行**（折叠空白后比较，至少 6 个字符）。四条有一条不过，
 这条 finding 不算数，连同原因退回给模型重试；仍不合格则**不返回 findings，直接报错**。
+
+## 规则适用范围
+
+有些写法**字面命中规则，但落在规则的适用范围之外**，报出来就是误报。目前收了三类：
+
+| 形态 | 规则 | 为什么不算 |
+| --- | --- | --- |
+| `# enum` 下的 `- case X` 成员行 | 禁止散文 | 枚举成员是声明，不是说明文字；``` 围栏内的内容同理 |
+| 基类 `ShapeToken` 上 `ExitOrPre` 的默认钩子 | 禁止覆盖 `ExitOrPre` | 规则约束的是**子形状**覆盖它；基类必须提供这个空默认实现 |
+| `return BranchStates.Undo;` / `return BranchStates.Reload;` | 未消费 basic token 的四种去向 | 这是分支回退/重派语义，不是「未消费 token 怎么处理」 |
+
+两条通道，缺一不可：
+
+1. **进 prompt**（`applicabilityNotes`）：只为本轮真实存在的规则生成一段「适用范围」说明，
+   模型一开始就不生成这些 finding，省调用也省重试；
+2. **本地筛除**（`exemptionFor`）：模型仍然报了也不会进主报告，但要带原因记进
+   `excluded`，并在报告文末「已按适用范围排除（N）」单独列出。
+
+**排除不是静默丢弃**：一份「0 条 finding」的报告必须能看出有 8 条是被适用范围挡掉的，
+否则读者分不清是代码干净、还是模型报的东西被悄悄吞了。判定只看文件自身文本
+（围栏、`# enum` 块、`## … ExitOrPre` 段、行内容），与 IMPORTANCE 的条目增删无关。
+
+新增基类需要把类名加进 `src/exemptions.mjs` 的 `BASE_HOOK_OWNERS`。
 
 ## 成本
 

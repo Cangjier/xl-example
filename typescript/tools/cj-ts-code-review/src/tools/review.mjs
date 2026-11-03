@@ -12,6 +12,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { analyzeFile, exemptionFor } from '../exemptions.mjs'
 import { batchFiles, collectFiles } from '../files.mjs'
 import { completeOnce, resolveModel } from '../llm.mjs'
 import { parseFindings } from '../parse.mjs'
@@ -56,6 +57,7 @@ export function createReviewTool(ctx, config, logger) {
       'Review code against the repository\'s IMPORTANCE rules (docs/IMPORTANCE.md, a user-owned document that is only ever read).',
       'The rules are parsed locally into ids and importance stages (P0 forbidden/mandatory, P1 constraint, P2 quality, P3 note); the model only answers which line violates which rule, and every finding must cite a real line with a verbatim snippet or it is rejected.',
       'Reviews stage by stage (P0 first) so the report is ordered by importance; ok only says the review ran, counts.P0 is the verdict.',
+      'Findings that fall outside a rule\'s stated scope — enum `- case` member lines and fenced content for the prose rule, the base `ShapeToken` `ExitOrPre` default hook, and `BranchStates.Undo`/`Reload` branch returns — are excluded with a named reason and listed separately instead of being counted.',
       `Model: ${config.provider ?? 'host default'} / ${config.model ?? 'host default'}. Scope defaults to ${config.maxFiles} files, ${config.filesPerCall} per call.`,
     ].join(' '),
     parameters: {
@@ -112,6 +114,7 @@ export function createReviewTool(ctx, config, logger) {
         maxBytes: config.batchBytes,
       })
       const findings = []
+      const excluded = []
       const calls = { count: 0 }
 
       for (const stage of activeStages) {
@@ -130,9 +133,10 @@ export function createReviewTool(ctx, config, logger) {
             fileMap,
             calls,
           })
-          findings.push(...found)
+          findings.push(...found.findings)
+          excluded.push(...found.excluded)
         }
-        logger.info(`code-review: ${stage} 完成，累计 ${findings.length} 条`)
+        logger.info(`code-review: ${stage} 完成，累计 ${findings.length} 条（排除 ${excluded.length} 条）`)
       }
 
       const sorted = sortFindings(findings)
@@ -153,6 +157,7 @@ export function createReviewTool(ctx, config, logger) {
         skipped,
         model,
         calls: calls.count,
+        excluded,
       })
 
       const outPath = args.outPath === undefined || args.outPath === null
@@ -175,6 +180,15 @@ export function createReviewTool(ctx, config, logger) {
         calls: calls.count,
         counts,
         blocking: counts.P0,
+        excludedCount: excluded.length,
+        excluded: excluded.map((item) => ({
+          level: item.level,
+          rule: item.rule,
+          file: item.file,
+          line: item.line,
+          lineText: item.lineText,
+          reason: item.exemptReason,
+        })),
         findings: sorted.map((finding) => ({
           level: finding.level,
           rule: finding.rule,
@@ -203,7 +217,7 @@ export function createReviewTool(ctx, config, logger) {
  * @param {Map<string, object>} options.ruleMap
  * @param {Map<string, object>} options.fileMap
  * @param {{count: number}} options.calls
- * @returns {Promise<object[]>}
+ * @returns {Promise<{findings: object[], excluded: object[]}>}
  */
 async function reviewBatch({ config, logger, model, stage, prompt, ruleMap, fileMap, calls }) {
   let issues = []
@@ -224,8 +238,9 @@ async function reviewBatch({ config, logger, model, stage, prompt, ruleMap, file
     const parsed = parseFindings(reply.text, { rules: ruleMap, files: fileMap })
     issues = parsed.issues
     if (issues.length === 0) {
-      logger.info(`code-review: ${stage} 第 ${attempt + 1} 次输出 ${parsed.findings.length} 条 finding（${reply.elapsedMs}ms）`)
-      return parsed.findings
+      const { findings, excluded } = applyExemptions(parsed.findings, fileMap)
+      logger.info(`code-review: ${stage} 第 ${attempt + 1} 次输出 ${findings.length} 条 finding、${excluded.length} 条按适用范围排除（${reply.elapsedMs}ms）`)
+      return { findings, excluded }
     }
     const excerpt = reply.text.replace(/\s+/g, ' ').slice(0, 300)
     logger.info(`code-review: ${stage} 第 ${attempt + 1} 次输出不合格：${issues.length} 个问题；原文前 300 字：${excerpt}`)
@@ -269,4 +284,36 @@ function normalizePaths(value) {
     throw new Error('paths 必须是字符串数组')
   }
   return value.map((item) => String(item))
+}
+
+/**
+ * 按「规则适用范围」筛 finding。
+ *
+ * 排除与拒绝是两回事：拒绝（片段抄错、行号越界、规则 id 编造）要退回模型重试；排除是规则
+ * 本身不适用于该处写法——确定性的、不重试，但**必须带原因进报告**。静默丢弃会让「0 条 finding」
+ * 这句话失去意义：读者分不清是代码干净，还是模型报的东西被悄悄吞了。
+ *
+ * @param {object[]} findings
+ * @param {Map<string, {rel: string, text: string}>} fileMap
+ * @returns {{findings: object[], excluded: object[]}}
+ */
+function applyExemptions(findings, fileMap) {
+  const contexts = new Map()
+  const kept = []
+  const excluded = []
+  for (const finding of findings) {
+    let context = contexts.get(finding.file)
+    if (context === undefined) {
+      const file = fileMap.get(finding.file)
+      context = analyzeFile(file?.text ?? '')
+      contexts.set(finding.file, context)
+    }
+    const reason = exemptionFor(finding, context)
+    if (reason === null) {
+      kept.push(finding)
+      continue
+    }
+    excluded.push({ ...finding, exemptReason: reason })
+  }
+  return { findings: kept, excluded }
 }

@@ -9,6 +9,7 @@
  * @module cj-ts-code-review/prompt
  */
 
+import { applicabilityNotes } from './exemptions.mjs'
 import { STAGE_INFO } from './rules.mjs'
 import { withLineNumbers } from './files.mjs'
 
@@ -32,6 +33,12 @@ export function buildPrompt({ stage, rules, files }) {
   const ruleLines = rules.map((rule, index) =>
     `${index + 1}. [${rule.id}] ${rule.sectionPath}｜${rule.text}`)
 
+  // 规则适用范围：只为本轮真实存在的规则生成，避免和「不得为凑数报」的约束打架。
+  const notes = applicabilityNotes(rules)
+  const noteBlock = notes.length === 0
+    ? []
+    : ['# 适用范围（下面这些不算违反，不要报）', '', ...notes, '']
+
   const fileBlocks = []
   for (const file of files) {
     fileBlocks.push(
@@ -47,6 +54,7 @@ export function buildPrompt({ stage, rules, files }) {
     '',
     ...ruleLines,
     '',
+    ...noteBlock,
     '# 待审文件（行号在 `|` 左边，1 起算）',
     '',
     ...fileBlocks,

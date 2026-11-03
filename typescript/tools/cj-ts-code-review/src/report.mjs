@@ -46,9 +46,10 @@ export function countByStage(findings) {
  * @param {string[]} options.skipped - 跳过的文件与原因，形如 `path（reason）`。
  * @param {{provider: string, model: string, source: string}} options.model
  * @param {number} options.calls
+ * @param {object[]} [options.excluded] - 命中规则适用范围被排除的 finding。
  * @returns {string} Markdown 报告。
  */
-export function renderReport({ findings, rules, stages, files, skipped, model, calls }) {
+export function renderReport({ findings, rules, stages, files, skipped, model, calls, excluded = [] }) {
   const sorted = sortFindings(findings)
   const counts = countByStage(sorted)
   const lines = []
@@ -65,7 +66,9 @@ export function renderReport({ findings, rules, stages, files, skipped, model, c
   lines.push('')
 
   if (sorted.length === 0) {
-    lines.push('没有 finding。')
+    lines.push(excluded.length === 0
+      ? '没有 finding。'
+      : `没有 finding；另有 ${excluded.length} 条命中规则适用范围，已在文末单独列出。`)
     lines.push('')
   }
 
@@ -97,6 +100,18 @@ export function renderReport({ findings, rules, stages, files, skipped, model, c
   }
 
   lines.push(`合计：${sorted.length} 条（${STAGES.map((stage) => `${stage} ${counts[stage]}`).join('，')}）`)
+
+  if (excluded.length > 0) {
+    lines.push('')
+    lines.push(`## 已按适用范围排除（${excluded.length}）`)
+    lines.push('')
+    lines.push('这些 finding 字面命中了规则，但命中处属于规则的适用范围之外，因此不计入上面的合计。')
+    lines.push('')
+    for (const item of excluded) {
+      lines.push(`- **${item.file}:${item.line}**　\`${item.rule}\`　${item.exemptReason ?? ''}`)
+      lines.push(`  - 代码：\`${clip(item.lineText ?? item.snippet ?? '')}\``)
+    }
+  }
 
   return lines.join('\n')
 }
