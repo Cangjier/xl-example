@@ -118,6 +118,12 @@ return false;
 return false;
 ```
 
+## method ShouldSplit:(combined:string, following:string)=>bool
+
+```ts
+return false;
+```
+
 ## method AllowCombineSymbol:(items:Array<string>)=>void
 
 ```ts

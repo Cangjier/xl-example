@@ -534,7 +534,7 @@ return this.Node(new LiteralTypeShape(this.Template), pos, common.SourceRange.St
 const pos = this.PosOf(this.Index);
 this.Index++;
 const literal = StringLiteralShape.FromString(string, pos);
-literal.CreatedRevisionAt = string.SourceRange.End;
+TypeRevisionUtil.SetRevision(literal, string.SourceRange.End);
 const children:Array<Token> = [literal];
 return this.Node(new LiteralTypeShape(this.Template), pos, string.SourceRange.Start, string.SourceRange.End, children);
 ```
@@ -641,7 +641,7 @@ while (true) {
   }
   this.Index++;
   const rightNode = IdentifierShape.FromCommon(right, this.PosOf(rightIndex));
-  rightNode.CreatedRevisionAt = right.SourceRange.End;
+  TypeRevisionUtil.SetRevision(rightNode, right.SourceRange.End);
   const base = node.Data.length > 0 ? node.Data[0] : null;
   if (base === null) {
     throw this.MakeError("限定名缺少左半");
@@ -730,7 +730,7 @@ if (!(first instanceof Common) || !OperandUtil.IsIdentifier(first.TempToString()
 }
 this.Index++;
 const identifier = IdentifierShape.FromCommon(first, this.PosOf(firstIndex));
-identifier.CreatedRevisionAt = first.SourceRange.End;
+TypeRevisionUtil.SetRevision(identifier, first.SourceRange.End);
 let node:Token = identifier;
 while (true) {
   this.SkipTrivia();
@@ -749,7 +749,7 @@ while (true) {
   }
   this.Index++;
   const rightNode = IdentifierShape.FromCommon(right, this.PosOf(rightIndex));
-  rightNode.CreatedRevisionAt = right.SourceRange.End;
+  TypeRevisionUtil.SetRevision(rightNode, right.SourceRange.End);
   const children:Array<Token> = [node, rightNode];
   node = this.Node(new QualifiedNameShape(this.Template), TypeShape.PosOfNode(node), node.SourceRange.Start, rightNode.SourceRange.End, children);
 }
@@ -783,7 +783,7 @@ if (!(moduleUnit instanceof String)) {
 }
 this.Index++;
 const literal = StringLiteralShape.FromString(moduleUnit, this.PosOf(moduleIndex));
-literal.CreatedRevisionAt = moduleUnit.SourceRange.End;
+TypeRevisionUtil.SetRevision(literal, moduleUnit.SourceRange.End);
 const literalChildren:Array<Token> = [literal];
 const literalType = this.Node(new LiteralTypeShape(this.Template), literal.Pos, moduleUnit.SourceRange.Start, moduleUnit.SourceRange.End, literalChildren);
 this.ExpectSymbol(")");
@@ -834,7 +834,7 @@ if (this.PeekCommon() === "abstract") {
   const abstractIndex = this.Index;
   this.Index++;
   const abstractKeyword = AbstractKeywordShape.FromUnit(this.Units[abstractIndex], this.PosOf(abstractIndex));
-  abstractKeyword.CreatedRevisionAt = this.Units[abstractIndex].SourceRange.End;
+  TypeRevisionUtil.SetRevision(abstractKeyword, this.Units[abstractIndex].SourceRange.End);
   children.push(abstractKeyword);
 }
 this.ExpectCommon("new");
@@ -974,7 +974,7 @@ if (!(nameUnit instanceof Common) || !OperandUtil.IsIdentifier(nameUnit.TempToSt
 }
 this.Index++;
 const name = IdentifierShape.FromCommon(nameUnit, this.PosOf(nameIndex));
-name.CreatedRevisionAt = nameUnit.SourceRange.End;
+TypeRevisionUtil.SetRevision(name, nameUnit.SourceRange.End);
 const children:Array<Token> = [name];
 let end = name.SourceRange.End;
 this.SkipTrivia();
@@ -1036,14 +1036,14 @@ if (!(nameUnit instanceof Common) || !OperandUtil.IsIdentifier(nameUnit.TempToSt
 }
 this.Index++;
 const paramName = IdentifierShape.FromCommon(nameUnit, this.PosOf(nameIndex));
-paramName.CreatedRevisionAt = nameUnit.SourceRange.End;
+TypeRevisionUtil.SetRevision(paramName, nameUnit.SourceRange.End);
 children.push(paramName);
 this.SkipTrivia();
 if (this.PeekSymbol() === "?") {
   const questionIndex = this.Index;
   this.Index++;
   const questionShape = QuestionTokenShape.FromUnit(this.Units[questionIndex], this.PosOf(questionIndex));
-  questionShape.CreatedRevisionAt = this.Units[questionIndex].SourceRange.End;
+  TypeRevisionUtil.SetRevision(questionShape, this.Units[questionIndex].SourceRange.End);
   children.push(questionShape);
 }
 this.SkipTrivia();
@@ -1071,7 +1071,7 @@ if (this.PeekCommon() === "asserts") {
   }
   this.Index++;
   const assertsName = IdentifierShape.FromCommon(nameUnit, this.PosOf(nameIndex));
-  assertsName.CreatedRevisionAt = nameUnit.SourceRange.End;
+  TypeRevisionUtil.SetRevision(assertsName, nameUnit.SourceRange.End);
   children.push(assertsName);
   this.ExpectCommon("is");
   const type = this.ParseType();
@@ -1088,7 +1088,7 @@ if (unit instanceof Common && OperandUtil.IsIdentifier(unit.TempToString()) && !
       const nameIndex = this.Index;
       this.Index++;
       const predicateName = IdentifierShape.FromCommon(unit, this.PosOf(nameIndex));
-      predicateName.CreatedRevisionAt = unit.SourceRange.End;
+      TypeRevisionUtil.SetRevision(predicateName, unit.SourceRange.End);
       const children:Array<Token> = [predicateName];
       this.SkipTrivia();
       this.Index++;
@@ -1142,14 +1142,14 @@ if (unit instanceof Common && OperandUtil.IsIdentifier(unit.TempToString()) && !
   const nameIndex = this.Index;
   this.Index++;
   const name = IdentifierShape.FromCommon(unit, this.PosOf(nameIndex));
-  name.CreatedRevisionAt = unit.SourceRange.End;
+  TypeRevisionUtil.SetRevision(name, unit.SourceRange.End);
   this.SkipTrivia();
   const children:Array<Token> = [name];
   if (this.PeekSymbol() === "?") {
     const questionIndex = this.Index;
     this.Index++;
     const questionShape = QuestionTokenShape.FromUnit(this.Units[questionIndex], this.PosOf(questionIndex));
-  questionShape.CreatedRevisionAt = this.Units[questionIndex].SourceRange.End;
+  TypeRevisionUtil.SetRevision(questionShape, this.Units[questionIndex].SourceRange.End);
   children.push(questionShape);
   }
   this.ExpectSymbol(":");
@@ -1163,7 +1163,7 @@ if (this.PeekSymbol() === "?") {
   const questionIndex = this.Index;
   this.Index++;
   const question = QuestionTokenShape.FromUnit(this.Units[questionIndex], this.PosOf(questionIndex));
-  question.CreatedRevisionAt = this.Units[questionIndex].SourceRange.End;
+  TypeRevisionUtil.SetRevision(question, this.Units[questionIndex].SourceRange.End);
   const children:Array<Token> = [type];
   return this.Node(new OptionalTypeShape(this.Template), TypeShape.PosOfNode(type), type.SourceRange.Start, question.SourceRange.End, children);
 }
@@ -1223,7 +1223,7 @@ if (this.PeekCommon() === "readonly") {
   const index = this.Index;
   this.Index++;
   const readonlyShape = ReadonlyKeywordShape.FromUnit(this.Units[index], this.PosOf(index));
-  readonlyShape.CreatedRevisionAt = this.Units[index].SourceRange.End;
+  TypeRevisionUtil.SetRevision(readonlyShape, this.Units[index].SourceRange.End);
   children.push(readonlyShape);
 } else if (this.PeekSymbol() === "+" || this.PeekSymbol() === "-") {
   const index = this.Index;
@@ -1231,11 +1231,11 @@ if (this.PeekCommon() === "readonly") {
   this.Index++;
   if (unit.TempToString() === "+") {
     const plus = PlusTokenShape.FromSymbol(unit, this.PosOf(index));
-    plus.CreatedRevisionAt = unit.SourceRange.End;
+    TypeRevisionUtil.SetRevision(plus, unit.SourceRange.End);
     children.push(plus);
   } else {
     const minus = MinusTokenShape.FromSymbol(unit, this.PosOf(index));
-    minus.CreatedRevisionAt = unit.SourceRange.End;
+    TypeRevisionUtil.SetRevision(minus, unit.SourceRange.End);
     children.push(minus);
   }
   this.SkipTrivia();
@@ -1252,7 +1252,7 @@ if (!(nameUnit instanceof Common) || !OperandUtil.IsIdentifier(nameUnit.TempToSt
 }
 this.Index++;
 const name = IdentifierShape.FromCommon(nameUnit, this.PosOf(nameIndex));
-name.CreatedRevisionAt = nameUnit.SourceRange.End;
+TypeRevisionUtil.SetRevision(name, nameUnit.SourceRange.End);
 this.ExpectCommon("in");
 const constraint = this.ParseType();
 const parameterChildren:Array<Token> = [name, constraint];
@@ -1269,7 +1269,7 @@ if (this.PeekSymbol() === "?") {
   const index = this.Index;
   this.Index++;
   const questionShape = QuestionTokenShape.FromUnit(this.Units[index], this.PosOf(index));
-  questionShape.CreatedRevisionAt = this.Units[index].SourceRange.End;
+  TypeRevisionUtil.SetRevision(questionShape, this.Units[index].SourceRange.End);
   children.push(questionShape);
 } else if (this.PeekSymbol() === "+" || this.PeekSymbol() === "-") {
   const index = this.Index;
@@ -1277,11 +1277,11 @@ if (this.PeekSymbol() === "?") {
   this.Index++;
   if (unit.TempToString() === "+") {
     const plus = PlusTokenShape.FromSymbol(unit, this.PosOf(index));
-    plus.CreatedRevisionAt = unit.SourceRange.End;
+    TypeRevisionUtil.SetRevision(plus, unit.SourceRange.End);
     children.push(plus);
   } else {
     const minus = MinusTokenShape.FromSymbol(unit, this.PosOf(index));
-    minus.CreatedRevisionAt = unit.SourceRange.End;
+    TypeRevisionUtil.SetRevision(minus, unit.SourceRange.End);
     children.push(minus);
   }
   this.SkipTrivia();
@@ -1343,7 +1343,7 @@ if (this.PeekCommon() === "readonly" && this.IsReadonlyModifier()) {
   const index = this.Index;
   this.Index++;
   const readonlyShape = ReadonlyKeywordShape.FromUnit(this.Units[index], this.PosOf(index));
-  readonlyShape.CreatedRevisionAt = this.Units[index].SourceRange.End;
+  TypeRevisionUtil.SetRevision(readonlyShape, this.Units[index].SourceRange.End);
   modifiers.push(readonlyShape);
   this.SkipTrivia();
 }
@@ -1379,7 +1379,7 @@ for (const modifier of modifiers) {
 children.push(name);
 if (question !== null) {
   const questionShape = QuestionTokenShape.FromUnit(question, this.PosOf(questionIndex));
-  questionShape.CreatedRevisionAt = question.SourceRange.End;
+  TypeRevisionUtil.SetRevision(questionShape, question.SourceRange.End);
   children.push(questionShape);
 }
 children.push(type);
@@ -1415,17 +1415,17 @@ if (unit instanceof Common) {
   this.Index++;
   if (unit.IsNumber()) {
     const numeric = NumericLiteralShape.FromCommon(unit, this.PosOf(index));
-    numeric.CreatedRevisionAt = unit.SourceRange.End;
+    TypeRevisionUtil.SetRevision(numeric, unit.SourceRange.End);
     return numeric;
   }
   const identifier = IdentifierShape.FromCommon(unit, this.PosOf(index));
-  identifier.CreatedRevisionAt = unit.SourceRange.End;
+  TypeRevisionUtil.SetRevision(identifier, unit.SourceRange.End);
   return identifier;
 }
 if (unit instanceof String) {
   this.Index++;
   const literal = StringLiteralShape.FromString(unit, this.PosOf(index));
-  literal.CreatedRevisionAt = unit.SourceRange.End;
+  TypeRevisionUtil.SetRevision(literal, unit.SourceRange.End);
   return literal;
 }
 throw this.MakeError("类型成员缺少名称");
@@ -1441,7 +1441,7 @@ for (const modifier of modifiers) {
 children.push(name);
 if (question !== null) {
   const questionShape = QuestionTokenShape.FromUnit(question, this.PosOf(questionIndex));
-  questionShape.CreatedRevisionAt = question.SourceRange.End;
+  TypeRevisionUtil.SetRevision(questionShape, question.SourceRange.End);
   children.push(questionShape);
 }
 for (const parameter of parameters) {
@@ -1518,7 +1518,7 @@ if (!(nameUnit instanceof Common) || !OperandUtil.IsIdentifier(nameUnit.TempToSt
 }
 this.Index++;
 const name = IdentifierShape.FromCommon(nameUnit, this.PosOf(nameIndex));
-name.CreatedRevisionAt = nameUnit.SourceRange.End;
+TypeRevisionUtil.SetRevision(name, nameUnit.SourceRange.End);
 this.ExpectSymbol(":");
 const parameterType = this.ParseType();
 this.ExpectSymbol("]");

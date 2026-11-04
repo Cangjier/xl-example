@@ -59,6 +59,9 @@ if (token instanceof ShapeToken) {
   if (token.CreatedAt < 0) {
     token.CreatedAt = index;
   }
+  if (token.CreatedRevisionAt >= 0 && token.CreatedRevisionAt >= token.CreatedAt) {
+    token.CreatedRevisionAt = -1;
+  }
 }
 const data = token.Data;
 for (let at = 0; at < data.length; at++) {

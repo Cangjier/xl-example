@@ -68,7 +68,15 @@ return previous instanceof Symbol && previous.Is("=");
 
 ```ts
 const common = host.Data[tokenIndex] as Common;
+const before = ItemUtil.PreviousCode(host.Data, tokenIndex - 1);
 const operand = OperandUtil.FromCommon(common, OperandUtil.PositionOf(host.Data, tokenIndex));
 common.Replace(operand);
+if (before >= 0 && before < host.Data.length) {
+  const equals = host.Data[before];
+  if (equals instanceof Symbol && equals.Is("=")) {
+    (host as any).EqualsPos = equals.SourceRange.Start;
+    equals.RemoveSelf();
+  }
+}
 return this.StampCreated(operand, context);
 ```

@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
 import { TypeLiteralShape } from "./type-node-shapes.xl.md"
 import { MappedTypeShape } from "./type-node-shapes.xl.md"
@@ -38,6 +39,18 @@ import { ImportTypeShape } from "./type-node-shapes.xl.md"
 # namespace cangjie
 
 # class TypeRevisionUtil
+
+## static method SetRevision:(node:ShapeToken, at:int)=>void
+
+```ts
+if (at < 0) {
+  return;
+}
+if (node.CreatedAt >= 0 && at >= node.CreatedAt) {
+  return;
+}
+node.CreatedRevisionAt = at;
+```
 
 ## static method MarkRevision:(node:TypeShape, start:int, end:int)=>void
 
@@ -101,6 +114,9 @@ if (node instanceof TypeLiteralShape || node instanceof MappedTypeShape) {
   at = node.Data.length > 0 ? node.Data[0].SourceRange.Start : start;
 }
 if (at < 0) {
+  return;
+}
+if (node.CreatedAt >= 0 && at >= node.CreatedAt) {
   return;
 }
 node.CreatedRevisionAt = at;

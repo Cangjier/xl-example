@@ -32,6 +32,7 @@ if (!this.EndsWithSemicolon) {
   }
 }
 this.Data = this.Data.filter((item) => !item.IsTriviaToken);
+this.Data = this.Data.filter((item) => !item.IsBasicToken);
 this.Closed = true;
 return CloseStates.Nothing;
 ```

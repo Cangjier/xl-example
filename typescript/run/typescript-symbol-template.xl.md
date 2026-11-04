@@ -48,8 +48,23 @@ switch (item) {
 if (combined === "?:") {
   return true;
 }
-if (combined === "?.") {
-  return following >= "0" && following <= "9";
-}
 return super.IsCombineBlocked(combined, following);
+```
+
+## method ShouldSplit:(combined:string, following:string)=>bool
+
+```ts
+if (combined === "?." && following >= "0" && following <= "9") {
+  return true;
+}
+return super.ShouldSplit(combined, following);
+```
+
+## method CanContinue:(prefix:string)=>bool
+
+```ts
+if (prefix === "?.") {
+  return true;
+}
+return super.CanContinue(prefix);
 ```

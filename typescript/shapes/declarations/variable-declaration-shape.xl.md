@@ -9,6 +9,8 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 
 # class VariableDeclarationShape extends ShapeToken
 
+## field EqualsPos:int = -1
+
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
 ```ts

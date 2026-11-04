@@ -22,6 +22,7 @@ const last = this.Last();
 if (last !== null && last.SourceRange.End >= 0) {
   this.SourceRange.End = last.SourceRange.End;
 }
+this.Data = this.Data.filter((item) => !item.IsBasicToken);
 this.Closed = true;
 return CloseStates.Nothing;
 ```

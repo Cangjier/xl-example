@@ -77,18 +77,11 @@ if (unit.Data.length > 0) {
     startIndex = first.SourceRange.EndIndex;
   }
 }
-if (index !== startIndex) {
-  return BranchStates.Undo;
-}
 const marker = unit.Template.ShebangMarker;
 if (marker.length !== 2) {
   return BranchStates.Undo;
 }
-if (value !== marker[0]) {
-  return BranchStates.Undo;
-}
-const whole = SourceRange.Whole(buffer.Document!);
-if (index + 1 >= whole.EndIndex || whole.At(index + 1) !== marker[1]) {
+if (index !== startIndex || value !== marker[0]) {
   return BranchStates.Undo;
 }
 const mounted = new Shebang(unit.Template);

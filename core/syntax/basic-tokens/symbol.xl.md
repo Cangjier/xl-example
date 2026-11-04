@@ -39,19 +39,7 @@ const combined = this.Temp + value;
 if (!this.Template.SymbolTemplate.IsCombinedSymbol(combined)) {
   return false;
 }
-return !this.Template.SymbolTemplate.IsCombineBlocked(combined, Symbol.NextCharAfter(buffer, index));
-```
-
-## static method NextCharAfter:(buffer:SourceRange, index:int)=>string
-
-```ts
-const whole = SourceRange.Whole(buffer.Document!);
-const count = whole.EndIndex;
-const next = index + 1;
-if (next >= count) {
-  return "";
-}
-return whole.At(next);
+return !this.Template.SymbolTemplate.IsCombineBlocked(combined, "");
 ```
 
 ## method CanContinue:()=>bool
@@ -132,6 +120,15 @@ if ((value === "+" || value === "-")
   return BranchStates.Undo;
 }
 if (Common.IsEscapeBackslash(template, value)) {
+  return BranchStates.Undo;
+}
+if (last instanceof Symbol && !last.Closed && template.SymbolTemplate.ShouldSplit(last.TempToString(), value)) {
+  const text = last.TempToString();
+  const tail = text.substring(text.length - 1);
+  last.Undo(index - 1);
+  const split = new Symbol(template);
+  unit.Add(split);
+  split.AppendAndSignOut(tail, index - 1).SignIn(index - 1);
   return BranchStates.Undo;
 }
 if (!template.SymbolTemplate.IsSymbol(value)) {

@@ -17,6 +17,8 @@ for (const item of this.Data) {
     item.TryToClose(context);
   }
 }
+this.Data = this.Data.filter((item) => !item.IsTriviaToken);
+this.Data = this.Data.filter((item) => !item.IsBasicToken);
 this.Closed = true;
 return CloseStates.Nothing;
 ```

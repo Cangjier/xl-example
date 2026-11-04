@@ -54,6 +54,9 @@ switch (common.TempToString()) {
 ## static method KeywordRevision:(shape:KeywordTypeShape, common:Common)=>KeywordTypeShape
 
 ```ts
-shape.CreatedRevisionAt = common.SourceRange.End;
+const at = common.SourceRange.End;
+if (at >= 0 && (shape.CreatedAt < 0 || at < shape.CreatedAt)) {
+  shape.CreatedRevisionAt = at;
+}
 return shape;
 ```

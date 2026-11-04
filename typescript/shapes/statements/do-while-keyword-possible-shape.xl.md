@@ -65,7 +65,9 @@ return unit instanceof Common && unit.Closed && unit.Is("while");
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const keyword = host.Data[tokenIndex];
 (host as ControlStatementShape).CatalogGuide = new CatalogGuide([new ConditionCreatePossibleShape()], null);
 host.MountedUnit = null;
-return this.StampCreated(host.Data[tokenIndex], context);
+keyword.RemoveSelf();
+return this.StampCreated(keyword, context);
 ```
