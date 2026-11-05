@@ -53,8 +53,18 @@ return unit instanceof Symbol && unit.Closed && (unit.Is(";") || unit.Is(")"));
 ```ts
 const clause = host as ForClauseShape;
 const terminator = clause.Data[tokenIndex] as Symbol;
+const code:Array<Token> = [];
+for (let at = 0; at < tokenIndex; at++) {
+  const item = clause.Data[at];
+  if (item.IsTriviaToken) {
+    continue;
+  }
+  if (item.IsBasicToken) {
+    throw new Error(`ForClauseEndPossibleShape: 子句存在未消费的 basic token（下标 ${at}，源位置 ${item.SourceRange.Start}）：“${item.AstText()}”`);
+  }
+  code.push(item);
+}
 clause.Data.splice(tokenIndex, 1);
-const code = clause.Data.filter((item) => !item.IsTriviaToken && !item.IsBasicToken);
 if (code.length === 0) {
   throw new Error("ForClauseEndPossibleShape: 子句没有表达式");
 }
