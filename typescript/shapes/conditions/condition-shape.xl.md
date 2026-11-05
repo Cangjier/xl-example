@@ -17,8 +17,16 @@ for (const item of this.Data) {
     item.TryToClose(context);
   }
 }
+for (let index = 0; index < this.Data.length; index++) {
+  const item = this.Data[index];
+  if (item.IsTriviaToken) {
+    continue;
+  }
+  if (item.IsBasicToken) {
+    throw new Error("ConditionShape: basic token 未被消费：" + item.AstText() + "（下标 " + index + "）");
+  }
+}
 this.Data = this.Data.filter((item) => !item.IsTriviaToken);
-this.Data = this.Data.filter((item) => !item.IsBasicToken);
 this.Closed = true;
 return CloseStates.Nothing;
 ```
