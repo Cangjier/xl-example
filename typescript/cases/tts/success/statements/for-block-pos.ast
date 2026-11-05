@@ -1,0 +1,4 @@
+SourceFile  pos=0  src=[0,15)
+└─ ForStatement  pos=0  src=[0,15)
+   ├─ Identifier  pos=5  src=[5,6)  text="a"
+   └─ Block  pos=11  src=[12,15)

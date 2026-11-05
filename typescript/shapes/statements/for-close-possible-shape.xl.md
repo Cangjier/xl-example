@@ -77,6 +77,7 @@ statement.Kind = "for";
 statement.BodyFirst = true;
 statement.Pos = head.Pos;
 statement.SignIn(head.SourceRange.Start);
+head.Data = head.Data.filter((item) => !item.IsTriviaToken);
 let lastChild:Token | null = null;
 for (const item of head.Data) {
   statement.Add(item);
