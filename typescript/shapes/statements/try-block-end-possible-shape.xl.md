@@ -11,7 +11,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BlockShape } from "./block-shape.xl.md"
 import { CatchKeywordPossibleShape } from "./catch-keyword-possible-shape.xl.md"
 import { FinallyKeywordPossibleShape } from "./finally-keyword-possible-shape.xl.md"
-import { ControlStatementShape } from "./control-statement-shape.xl.md"
+import { TryStatementEndPossibleShape } from "./try-statement-end-possible-shape.xl.md"
 import { TryStatementShape } from "./try-statement-shape.xl.md"
 ```
 
@@ -57,12 +57,10 @@ block.Quit();
 if (!(parent instanceof TryStatementShape)) {
   return this.StampCreated(close, context);
 }
-if (ControlStatementShape.IsWordAhead(context, close.SourceRange.End, "catch")) {
-  CatchKeywordPossibleShape.Arm(parent);
-} else if (ControlStatementShape.IsWordAhead(context, close.SourceRange.End, "finally")) {
-  FinallyKeywordPossibleShape.Arm(parent);
-} else {
-  TryStatementShape.Finish(parent, context);
-}
+parent.CatalogGuide = new CatalogGuide(
+  [new CatchKeywordPossibleShape(), new FinallyKeywordPossibleShape()],
+  new TryStatementEndPossibleShape(),
+);
+parent.MountedUnit = null;
 return this.StampCreated(close, context);
 ```

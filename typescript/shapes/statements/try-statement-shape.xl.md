@@ -55,6 +55,8 @@ if (this.SourceRange.End < 0) {
     }
     break;
   }
+} else {
+  this.TrimEndToLastCode();
 }
 this.Data = this.Data.filter((item) => !item.IsTriviaToken && !item.IsBasicToken);
 this.Closed = true;

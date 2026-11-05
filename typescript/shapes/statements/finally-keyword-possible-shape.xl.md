@@ -10,6 +10,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { TryStatementShape } from "./try-statement-shape.xl.md"
+import { TryStatementEndPossibleShape } from "./try-statement-end-possible-shape.xl.md"
 import { FinallyBlockPossibleShape } from "./finally-block-possible-shape.xl.md"
 ```
 
@@ -21,7 +22,10 @@ import { FinallyBlockPossibleShape } from "./finally-block-possible-shape.xl.md"
 ## static method Arm:(statement:TryStatementShape)=>void
 
 ```ts
-statement.CatalogGuide = new CatalogGuide([new FinallyKeywordPossibleShape()], null);
+statement.CatalogGuide = new CatalogGuide(
+  [new FinallyKeywordPossibleShape()],
+  new TryStatementEndPossibleShape(),
+);
 statement.MountedUnit = null;
 ```
 

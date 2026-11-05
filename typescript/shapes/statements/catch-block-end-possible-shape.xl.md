@@ -10,8 +10,9 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BlockShape } from "./block-shape.xl.md"
 import { CatchClauseShape } from "./catch-clause-shape.xl.md"
+import { CatchKeywordPossibleShape } from "./catch-keyword-possible-shape.xl.md"
 import { FinallyKeywordPossibleShape } from "./finally-keyword-possible-shape.xl.md"
-import { ControlStatementShape } from "./control-statement-shape.xl.md"
+import { TryStatementEndPossibleShape } from "./try-statement-end-possible-shape.xl.md"
 import { TryStatementShape } from "./try-statement-shape.xl.md"
 ```
 
@@ -64,10 +65,10 @@ const statement = clause.Parent;
 if (!(statement instanceof TryStatementShape)) {
   return this.StampCreated(close, context);
 }
-if (ControlStatementShape.IsWordAhead(context, close.SourceRange.End, "finally")) {
-  FinallyKeywordPossibleShape.Arm(statement);
-} else {
-  TryStatementShape.Finish(statement, context);
-}
+statement.CatalogGuide = new CatalogGuide(
+  [new CatchKeywordPossibleShape(), new FinallyKeywordPossibleShape()],
+  new TryStatementEndPossibleShape(),
+);
+statement.MountedUnit = null;
 return this.StampCreated(close, context);
 ```
