@@ -28,14 +28,13 @@ if (config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes
   item.InterpolationCount = 1;
 }
 const undoSources: number[] = [];
-const whole = SourceRange.Whole(buffer.Document!);
 let last = index;
 while (true) {
   last = last - 1;
   if (last < 0) {
     break;
   }
-  const previous = whole.At(last);
+  const previous = buffer.At(last);
   if (config.HasInterpolationPrefix && previous === config.InterpolationPrefix) {
     undoSources.push(last);
   } else if (config.HasVerbatim && previous === config.VerbatimPrefix) {
@@ -45,7 +44,7 @@ while (true) {
   }
 }
 for (const i of undoSources) {
-  if (whole.At(i) === config.VerbatimPrefix) {
+  if (buffer.At(i) === config.VerbatimPrefix) {
     item.IsSupportVerbatim = true;
   } else {
     item.IsSupportInterpolation = true;

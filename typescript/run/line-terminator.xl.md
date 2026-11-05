@@ -49,10 +49,9 @@ const document = left.Document !== null ? left.Document : right.Document;
 if (document === null || left.EndIndex < 0 || right.StartIndex < 0) {
   return false;
 }
-const whole = SourceRange.Whole(document);
 let at = left.EndIndex;
 while (at < right.StartIndex) {
-  if (LineTerminator.IsLineTerminator(whole.At(at))) {
+  if (LineTerminator.IsLineTerminator(document.GetValue(at))) {
     return true;
   }
   at++;
@@ -94,11 +93,10 @@ const document = last.Document;
 if (document === null || last.EndIndex < 0) {
   return false;
 }
-const whole = SourceRange.Whole(document);
 const count = document.GetCount();
 let at = last.EndIndex;
 while (at < count) {
-  const ch = whole.At(at);
+  const ch = document.GetValue(at);
   if (LineTerminator.IsLineTerminator(ch)) {
     return true;
   }
@@ -107,18 +105,18 @@ while (at < count) {
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = whole.At(at + 1);
+    const next = document.GetValue(at + 1);
     if (next === "/") {
       at += 2;
-      while (at < count && !LineTerminator.IsLineTerminator(whole.At(at))) {
+      while (at < count && !LineTerminator.IsLineTerminator(document.GetValue(at))) {
         at++;
       }
       return at < count;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
-        if (LineTerminator.IsLineTerminator(whole.At(at))) {
+      while (at + 1 < count && !(document.GetValue(at) === "*" && document.GetValue(at + 1) === "/")) {
+        if (LineTerminator.IsLineTerminator(document.GetValue(at))) {
           return true;
         }
         at++;

@@ -80,7 +80,7 @@ try {
       index = context.Index;
       continue;
     }
-    const value = buffer.ValueAt(index);
+    const value = buffer.At(index);
     const exitState = this.ExitOrPre(context, buffer, index, value);
     if (exitState === BranchStates.Reload) {
       context.Messages.push(new ReloadMessage(null, index));
@@ -243,7 +243,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
         this.PendingInterpolation = index;
       } else if (quoteInterpolation && value === "\r") {
         this.AppendToLastConstString("\n", index, context);
-      } else if (quoteInterpolation && value === "\n" && index > 0 && (index > buffer.Start ? buffer.At(index - 1) : SourceRange.Whole(buffer.Document!).At(index - 1)) === "\r") {
+      } else if (quoteInterpolation && value === "\n" && index > 0 && buffer.At(index - 1) === "\r") {
       } else {
         this.AppendToLastConstString(value, index, context);
       }

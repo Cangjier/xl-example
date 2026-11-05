@@ -17,8 +17,6 @@ import { SourceRange } from "./source-range.xl.md"
 
 ## field Parent:SourceRange | null = null
 
-## field WholeRange:SourceRange | null = null
-
 ## constructor:(getValue:ValueGetter, getCount:CountGetter, Parent?:SourceRange | null)=>void
 
 ```ts
