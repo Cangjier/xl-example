@@ -14,6 +14,7 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { ForClauseShape } from "./for-clause-shape.xl.md"
 import { PostfixUnaryExpressionShape } from "./postfix-unary-expression-shape.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 ```
 
 # namespace cangjie
@@ -21,17 +22,19 @@ import { PostfixUnaryExpressionShape } from "./postfix-unary-expression-shape.xl
 # class PostfixPossibleShape extends PossibleShape
 
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 if (!(host instanceof ForClauseShape)) {
   return ShapeStates.Reject;
 }
-const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.IsAny(["++", "--"])) {
   return ShapeStates.Reject;
 }
@@ -42,13 +45,15 @@ if (leftIndex < 0) {
 return PostfixPossibleShape.IsOperand(units[leftIndex]) ? ShapeStates.Accept : ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.IsAny(["++", "--"])) {
   return false;
 }
@@ -62,11 +67,13 @@ return leftIndex >= 0 && PostfixPossibleShape.IsOperand(units[leftIndex]);
 return unit.Closed && (unit instanceof IdentifierShape || unit instanceof NumericLiteralShape);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const operator = units[tokenIndex] as Symbol;
+const tokenIndex = index.Index;
+const operator = index.At(tokenIndex) as Symbol;
 const leftIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
 const operand = units[leftIndex];
 const shape = new PostfixUnaryExpressionShape(host.Template);

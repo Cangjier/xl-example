@@ -14,6 +14,7 @@ import { CaseKeywordPossibleShape } from "./case-keyword-possible-shape.xl.md"
 import { DefaultKeywordPossibleShape } from "./default-keyword-possible-shape.xl.md"
 import { CaseBlockEndPossibleShape } from "./case-block-end-possible-shape.xl.md"
 import { SwitchStatementShape } from "./switch-statement-shape.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 ```
 
 # namespace cangjie
@@ -21,14 +22,16 @@ import { SwitchStatementShape } from "./switch-statement-shape.xl.md"
 # class SwitchBodyPossibleShape extends PossibleShape
 
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Symbol) || !unit.Closed) {
   return ShapeStates.Reject;
 }
@@ -38,21 +41,25 @@ if (!unit.Is("{")) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 return unit instanceof Symbol && unit.Closed && unit.Is("{");
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const open = units[tokenIndex] as Symbol;
+const tokenIndex = index.Index;
+const open = index.At(tokenIndex) as Symbol;
 const block = CaseBlockShape.FromOpen(open, ItemUtil.PositionOf(units, tokenIndex));
 block.CatalogGuide = new CatalogGuide(
   [new CaseKeywordPossibleShape(), new DefaultKeywordPossibleShape(), new CaseBlockEndPossibleShape()],
