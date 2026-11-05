@@ -24,60 +24,6 @@ import { Token } from "../../../core/syntax/token.xl.md"
 
 ## field EndFixed:bool = false
 
-## static method IsElseAhead:(context:SyntaxContext, from:int)=>bool
-
-```ts
-return ControlStatementShape.IsWordAhead(context, from, "else");
-```
-
-## static method IsWordAhead:(context:SyntaxContext, from:int, word:string)=>bool
-
-```ts
-const document = context.CurrentDocument;
-if (document === null) {
-  return false;
-}
-const length = word.length;
-const count = document.GetCount();
-let at = from;
-while (at < count) {
-  const ch = document.GetValue(at);
-  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f") {
-    at++;
-    continue;
-  }
-  if (ch === "/" && at + 1 < count) {
-    const next = document.GetValue(at + 1);
-    if (next === "/") {
-      at += 2;
-      while (at < count && document.GetValue(at) !== "\n" && document.GetValue(at) !== "\r") {
-        at++;
-      }
-      continue;
-    }
-    if (next === "*") {
-      at += 2;
-      while (at + 1 < count && !(document.GetValue(at) === "*" && document.GetValue(at + 1) === "/")) {
-        at++;
-      }
-      at += 2;
-      continue;
-    }
-  }
-  break;
-}
-if (at + length > count) {
-  return false;
-}
-if (document.GetRaw(at, at + length) !== word) {
-  return false;
-}
-if (at + length >= count) {
-  return true;
-}
-return !/[$_\p{ID_Continue}]/u.test(document.GetValue(at + length));
-```
-
 ## method WaitsAfterBody:(context:SyntaxContext, end:int)=>bool
 
 ```ts

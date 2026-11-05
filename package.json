@@ -11,6 +11,7 @@
     "check": "xl check",
     "build": "xl build && tsc",
     "compile": "tsc",
+    "rules:check": "node ./typescript/tools/check-possible-rules.mjs",
     "gates": "node ./tests/gates/run.mjs",
     "samples": "node ./samples/check.mjs",
     "cjcli": "node ./build/ts/cjcli.js",
