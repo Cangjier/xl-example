@@ -22,7 +22,11 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 
 # class TypeOperatorShape extends TypeShape
 
+## field Keyword:string = ""
+
 # class TypeQueryShape extends TypeShape
+
+## field Keyword:string = ""
 
 # class IndexedAccessTypeShape extends TypeShape
 

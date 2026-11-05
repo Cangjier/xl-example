@@ -313,7 +313,9 @@ if (unit instanceof Common) {
     this.Index++;
     const operand = this.ParseTypeOperator();
     const children:Array<Token> = [operand];
-    return this.Node(new TypeOperatorShape(this.Template), this.PosOf(startIndex), unit.SourceRange.Start, operand.SourceRange.End, children);
+    const shape = new TypeOperatorShape(this.Template);
+    shape.Keyword = text;
+    return this.Node(shape, this.PosOf(startIndex), unit.SourceRange.Start, operand.SourceRange.End, children);
   }
 }
 return this.ParsePostfix();
@@ -760,10 +762,15 @@ return node;
 
 ```ts
 const startIndex = this.Index;
+const keyword = this.Units[startIndex];
 this.Index++;
 const name = this.ParseEntityName();
 const children:Array<Token> = [name];
-return this.Node(new TypeQueryShape(this.Template), this.PosOf(startIndex), this.Units[startIndex].SourceRange.Start, name.SourceRange.End, children);
+const shape = new TypeQueryShape(this.Template);
+if (keyword instanceof Common) {
+  shape.Keyword = keyword.TempToString();
+}
+return this.Node(shape, this.PosOf(startIndex), this.Units[startIndex].SourceRange.Start, name.SourceRange.End, children);
 ```
 
 ## private method ParseImportType:()=>Token
