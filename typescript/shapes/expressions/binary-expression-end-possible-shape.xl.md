@@ -12,6 +12,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
 import { BinaryOperatorTable } from "./binary-operator-table.xl.md"
+import { CallPossibleShape } from "./call-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "./suffix-access-possible-shape.xl.md"
 import { BinaryOperatorTokenShape } from "../punctuation/binary-operator-token-shape.xl.md"
 ```
@@ -46,6 +47,9 @@ if (!unit.Closed) {
   return false;
 }
 if (SuffixAccessPossibleShape.KindOf(units, tokenIndex) !== "") {
+  return false;
+}
+if (CallPossibleShape.ShouldBuild(units, tokenIndex)) {
   return false;
 }
 if (!BinaryExpressionEndPossibleShape.HasOperandBefore(units, tokenIndex)) {
