@@ -8,6 +8,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { StatementUtil } from "./statement-util.xl.md"
 import { ExpressionUtil } from "../expressions/expression-util.xl.md"
 import { OperandUtil } from "../expressions/operand-util.xl.md"
@@ -27,10 +28,12 @@ import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 
 # class ExpressionStatementPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (start >= units.length || tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
@@ -38,7 +41,7 @@ if (start >= units.length || tokenIndex < 0 || tokenIndex >= units.length) {
 if (tokenIndex !== start) {
   return ShapeStates.Reject;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!unit.Closed) {
   return ShapeStates.Uncertain;
 }
@@ -51,14 +54,16 @@ if (ExpressionUtil.IsPrefixOperator(unit)) {
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (start >= units.length || tokenIndex !== start || tokenIndex !== units.length - 1) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!unit.Closed) {
   return false;
 }
@@ -68,11 +73,13 @@ if (unit instanceof Common && OperandUtil.CanStartExpression(unit)) {
 return ExpressionUtil.IsPrefixOperator(unit);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const unit = units[tokenIndex];
+const tokenIndex = index.Index;
+const unit = index.At(tokenIndex);
 const pos = OperandUtil.PositionOf(units, tokenIndex);
 const statement = new ExpressionStatementShape(host.Template);
 const guide = new CatalogGuide(
@@ -87,7 +94,7 @@ if (ExpressionUtil.IsPrefixOperator(unit)) {
   statement.Add(unit);
   statement.Parent = host;
   host.MountedUnit = statement;
-  const built = new PrefixUnaryPossibleShape().BuildByIndex(statement, 0, guide, context);
+  const built = new PrefixUnaryPossibleShape().BuildByIndex(new TokenIndex(statement, 0), guide, context);
   if (built instanceof ShapeToken) {
     built.Pos = pos;
   }
