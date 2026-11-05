@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>codes.jsonl 编辑器</title>
+<style>
+:root{--bg:#ffffff;--fg:#1f2328;--muted:#656d76;--line:#d0d7de;--chip:#f6f8fa;--err:#cf222e;--warn:#9a6700;--ok:#1a7f37;--focus:#0969da}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8b949e;--line:#30363d;--chip:#161b22;--err:#ff7b72;--warn:#d29922;--ok:#3fb950;--focus:#58a6ff}}
+*{box-sizing:border-box}
+body{margin:0;padding:22px 26px 60px;background:var(--bg);color:var(--fg);font:14px/1.55 ui-sans-serif,system-ui,"Segoe UI","Microsoft YaHei",sans-serif}
+h1{font-size:19px;margin:0 0 4px}
+.sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px}
+.bar.muted{color:var(--muted);font-size:12.5px;gap:14px}
+button{border:1px solid var(--line);background:var(--chip);color:var(--fg);border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;font-family:inherit}
+button:hover:not(:disabled){border-color:var(--focus)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--focus);border-color:var(--focus);color:#fff;font-weight:600}
+.file{font-family:ui-monospace,SFMono-Regular,Consolas,"Courier New",monospace;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.banner{margin:10px 0;border-radius:8px;padding:8px 12px;font-size:13px;border:1px solid var(--line);background:var(--chip)}
+.banner.err{border-color:var(--err);color:var(--err)}
+.banner.warn{border-color:var(--warn);color:var(--warn)}
+.banner.ok{border-color:var(--ok);color:var(--ok)}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:14px;min-width:1180px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+td input,td select,td textarea{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:4px 6px;font:inherit;font-size:12.5px;font-family:inherit}
+td input,td textarea{font-family:ui-monospace,SFMono-Regular,Consolas,"Courier New",monospace}
+/* 文本一律多行：高度由脚本按内容算，行内取最高的一栏，内容全展开、不出现内部滚动条 */
+td textarea{resize:none;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;min-height:0}
+td input:focus,td select:focus,td textarea:focus{outline:none;border-color:var(--focus)}
+td input.bad,td select.bad,td textarea.bad{border-color:var(--err)}
+tr.bad td.idx{color:var(--err);font-weight:700}
+.idx{color:var(--muted);font-variant-numeric:tabular-nums;text-align:right;font-size:12px;padding-top:10px}
+.ops{white-space:nowrap;text-align:right}
+.ops .icon{padding:2px 6px;font-size:12px;line-height:1.2;margin-left:2px}
+.ops .del:hover{color:var(--err);border-color:var(--err)}
+.empty{color:var(--muted);padding:22px 8px;text-align:center}
+details{margin-top:22px;color:var(--muted);font-size:12.5px}
+details summary{cursor:pointer}
+details dl{display:grid;grid-template-columns:max-content 1fr;gap:2px 14px;margin:8px 0 0}
+details dt{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--fg)}
+details dd{margin:0}
+footer{margin-top:30px;color:var(--muted);font-size:12px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,"Courier New",monospace;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>codes.jsonl 编辑器</h1>
+  <p class="sub">这就是本次诊断用的诊断码文件。<b>保存会覆盖你打开的那个文件</b>；coder_debug 下次运行会直接复用它，不再重新生成。</p>
+  <div class="bar">
+    <button id="open" class="primary">打开 codes.jsonl</button>
+    <button id="save" disabled>保存</button>
+    <button id="saveas" disabled>另存为…</button>
+    <button id="add">新增一条</button>
+    <button id="sort">按码排序</button>
+    <input id="picker" type="file" accept=".jsonl,.json,text/plain" hidden>
+  </div>
+  <div class="bar muted">
+    <span class="file" id="file">未打开文件</span>
+    <span id="counts">共 0 条</span>
+    <span id="mode"></span>
+    <span id="status"></span>
+  </div>
+</header>
+<div id="banner" class="banner" hidden></div>
+<main>
+  <div class="wrap">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:36px">#</th>
+        <th style="width:8%">code</th>
+        <th style="width:6%">族</th>
+        <th style="width:7%">severity</th>
+        <th style="width:17%">title</th>
+        <th style="width:20%">rule（文档原文）</th>
+        <th style="width:17%">detect（怎么检查）</th>
+        <th style="width:9%">include</th>
+        <th style="width:9%">exclude</th>
+        <th style="width:64px"></th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  </div>
+</main>
+<details>
+  <summary>字段说明与规则</summary>
+  <dl>
+    <dt>code</dt><dd>D 开头 = Debug（运行期可观察，靠插桩 + 运行证实）；Q 开头 = 质量（只能读代码判断）。D/Q + 2~4 位数字，全文件唯一。</dd>
+    <dt>kind</dt><dd>由 code 前缀决定，改 code 会自动跟着改；两者不一致时这里会报错。</dd>
+    <dt>severity</dt><dd>error（必须）/ warning（应当）/ info（建议）。</dd>
+    <dt>title</dt><dd>一句话说明这条规则是什么，会出现在报告表格里。</dd>
+    <dt>rule</dt><dd>规范文档里的原文摘录，不要改写。</dd>
+    <dt>detect</dt><dd>怎么检查它：Debug 码写运行期观察什么，质量码写读代码时看什么。</dd>
+    <dt>include</dt><dd>这条码只管这些目录（相对仓库根，逗号分隔），例如 <code>src, packages/api</code>。空 = 覆盖所有源文件。</dd>
+    <dt>exclude</dt><dd>这条码不管这些目录，例如 <code>src/legacy</code>。空 = 不排除任何目录。</dd>
+    <dt>作用范围</dt><dd>范围外的位置不算这条码的违规：审查 / 插桩 / 运行期诊断都会按范围校验，超出就被打回。</dd>
+    <dt>未知字段</dt><dd>文件里手写的其他字段会被原样保留。</dd>
+  </dl>
+</details>
+<footer>include / exclude 用逗号或换行分隔；空白行会被忽略；保存时会按 code / kind / title / severity / rule / detect / include / exclude 的顺序重写，末尾补一个换行。</footer>
+<script>
+/**
+ * codes.jsonl 的纯逻辑：解析、校验、序列化、作用范围。
+ *
+ * 同一段代码被三处使用：Node 侧读写仓库里的 codes.jsonl、编辑器 HTML（整段内联进页面）、
+ * 单元测试。所以这里不 import 任何东西、不用顶层 await，内联时只去掉行首的 `export`。
+ *
+ * 约定：
+ * - `code` 的前缀决定族（D = Debug，Q = 质量），`kind` 只是把前缀写下来的副本；
+ *   两者不一致时算错误而不是悄悄改，否则文件内容和本次运行的判定会不一致。
+ * - `include` / `exclude` 是**每一条码**的作用范围（相对仓库根的目录），两个都可选；
+ *   都为空就是覆盖所有源文件。范围外的位置一律不算这条码的违规。
+ */
+
+/** 与 src/diagnostics.mjs 的 SEVERITIES 保持一致（有测试盯着）。 */
+const SEVERITIES = ['error', 'warning', 'info']
+
+/** 输出时的字段顺序，固定下来 diff 才稳定。 */
+const FIELD_ORDER = ['code', 'kind', 'title', 'severity', 'rule', 'detect', 'include', 'exclude']
+
+/** 作用范围字段：都是路径列表。 */
+const SCOPE_FIELDS = ['include', 'exclude']
+
+/** 码的形态：D/Q + 2~4 位数字。 */
+const CODE_PATTERN = /^[DQ][0-9]{2,4}$/
+
+/** 行数上限：超过这个数说明不是诊断码，是数据文件。 */
+const MAX_ROWS = 400
+
+/**
+ * @param {unknown} code
+ * @returns {'debug'|'quality'|null}
+ */
+function kindOfCode(code) {
+  const text = String(code == null ? '' : code).trim().toUpperCase()
+  const first = text.charAt(0)
+  if (first === 'D') return 'debug'
+  if (first === 'Q') return 'quality'
+  return null
+}
+
+/**
+ * 把「数组 / 逗号或换行分隔的字符串」读成路径列表。
+ *
+ * 只做切分和去空白，不判断合法性：非法路径要作为校验问题报出来，而不是被悄悄吃掉。
+ *
+ * @param {unknown} value
+ * @returns {string[]}
+ */
+function pathListOf(value) {
+  let items = []
+  if (Array.isArray(value)) items = value
+  else if (typeof value === 'string') items = value.split(/[,\n]/)
+  else if (value === undefined || value === null) items = []
+  else items = [value]
+
+  const out = []
+  for (const item of items) {
+    if (typeof item !== 'string') continue
+    const text = item.trim().replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/{2,}/g, '/').replace(/\/+$/, '')
+    if (!text) continue
+    if (out.indexOf(text) < 0) out.push(text)
+  }
+  return out
+}
+
+/**
+ * 把任意对象规整成一行码：必填字段转字符串，未知字段原样保留（手写的备注不该被吃掉）。
+ *
+ * @param {object} raw
+ * @returns {object}
+ */
+function normalizeRow(raw) {
+  const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+  const code = String(source.code == null ? '' : source.code).trim()
+  const declared = source.kind === 'quality' ? 'quality' : source.kind === 'debug' ? 'debug' : null
+  const row = {
+    code,
+    kind: declared || kindOfCode(code) || 'debug',
+    title: String(source.title == null ? '' : source.title).trim(),
+    severity: String(source.severity == null ? '' : source.severity).trim() || 'warning',
+    // 文档里的「- 必须…」连列表符号一起被抄下来时，去掉符号，只留那句话。
+    rule: String(source.rule == null ? '' : source.rule).trim().replace(/^[-*+>]\s+/, ''),
+    detect: String(source.detect == null ? '' : source.detect).trim(),
+    include: pathListOf(source.include),
+    exclude: pathListOf(source.exclude),
+  }
+  for (const key of Object.keys(source)) {
+    if (FIELD_ORDER.indexOf(key) >= 0) continue
+    if (key.charAt(0) === '_' && key.charAt(1) === '_') continue
+    row[key] = source[key]
+  }
+  return row
+}
+
+/**
+ * 解析 JSONL 文本。坏行不丢：进 problems，其余照常返回。
+ *
+ * 每行会带一个 `__line`（只在本进程里有意义，序列化时丢掉），
+ * 这样校验报错能直接指到文件行号，用户打开编辑器就能对上。
+ *
+ * @param {string} text
+ * @returns {{ rows: Array<object>, problems: Array<object> }}
+ */
+function parseCodes(text) {
+  const rows = []
+  const problems = []
+  const lines = String(text == null ? '' : text).split('\n')
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim()
+    if (!line) continue
+    const lineNo = i + 1
+    let value
+    try {
+      value = JSON.parse(line)
+    } catch {
+      problems.push({ line: lineNo, index: -1, field: null, message: `第 ${lineNo} 行不是合法 JSON` })
+      continue
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      problems.push({ line: lineNo, index: -1, field: null, message: `第 ${lineNo} 行不是 JSON 对象` })
+      continue
+    }
+    const row = normalizeRow(value)
+    row.__line = lineNo
+    rows.push(row)
+  }
+  return { rows, problems }
+}
+
+/**
+ * 序列化：一行一个对象，字段顺序固定，include / exclude 总是写出来（空数组 = 不限制）。
+ *
+ * @param {Array<object>} rows
+ * @returns {string}
+ */
+function serializeCodes(rows) {
+  const lines = []
+  for (const raw of rows || []) {
+    const row = normalizeRow(raw)
+    const out = {}
+    for (const field of FIELD_ORDER) out[field] = row[field]
+    for (const key of Object.keys(row)) {
+      if (FIELD_ORDER.indexOf(key) >= 0) continue
+      out[key] = row[key]
+    }
+    lines.push(JSON.stringify(out))
+  }
+  return lines.length > 0 ? `${lines.join('\n')}\n` : ''
+}
+
+/**
+ * @param {string} value
+ * @returns {boolean}
+ */
+function isAbsolute(value) {
+  return value.charAt(0) === '/' || /^[A-Za-z]:\//.test(value) || /^[A-Za-z]:$/.test(value)
+}
+
+/**
+ * @param {string} value
+ * @returns {boolean}
+ */
+function escapesRoot(value) {
+  return value.split('/').indexOf('..') >= 0
+}
+
+/**
+ * 校验整张表。返回空数组才算可以落盘 / 可以进提示词。
+ *
+ * @param {Array<object>} rows
+ * @returns {Array<{ index: number, field: string | null, message: string }>}
+ */
+function validateRows(rows) {
+  const list = Array.isArray(rows) ? rows : []
+  const problems = []
+  const push = (index, field, message) => problems.push({ index, field, message })
+
+  if (list.length > MAX_ROWS) {
+    push(-1, null, `诊断码 ${list.length} 条，超过上限 ${MAX_ROWS} 条`)
+  }
+
+  const seen = new Map()
+  for (let i = 0; i < list.length; i += 1) {
+    const row = list[i] || {}
+    const where = labelOf(row, i)
+    const code = String(row.code == null ? '' : row.code).trim()
+    const kind = kindOfCode(code)
+    const declared = row.kind === 'quality' ? 'quality' : row.kind === 'debug' ? 'debug' : null
+
+    if (!code) push(i, 'code', `${where}：code 为空`)
+    else if (!CODE_PATTERN.test(code)) push(i, 'code', `${where}：code「${code}」应形如 D01 / Q002（D 或 Q + 2~4 位数字）`)
+    else if (kind && declared && declared !== kind) push(i, 'kind', `${where}：code 是 ${code}，kind 应为 ${kind}`)
+
+    if (SEVERITIES.indexOf(String(row.severity)) < 0) {
+      push(i, 'severity', `${where}：severity「${row.severity}」只能是 ${SEVERITIES.join(' / ')}`)
+    }
+    if (!String(row.title == null ? '' : row.title).trim()) push(i, 'title', `${where}：title 为空`)
+    if (!String(row.rule == null ? '' : row.rule).trim()) push(i, 'rule', `${where}：rule 为空`)
+    if (!String(row.detect == null ? '' : row.detect).trim()) push(i, 'detect', `${where}：detect 为空`)
+
+    for (const field of SCOPE_FIELDS) {
+      const paths = pathListOf(row[field])
+      for (const item of paths) {
+        if (isAbsolute(item)) {
+          push(i, field, `${where}：${field} 里的「${item}」是绝对路径，要写相对仓库根的目录`)
+        } else if (escapesRoot(item)) {
+          push(i, field, `${where}：${field} 里的「${item}」含有 ..，只能用仓库内的目录`)
+        }
+      }
+    }
+
+    if (code) {
+      if (seen.has(code)) push(i, 'code', `${where}：码 ${code} 重复（和第 ${seen.get(code)} 条同一个码）`)
+      else seen.set(code, i + 1)
+    }
+  }
+  return problems
+}
+
+/**
+ * @param {object} row
+ * @param {number} index
+ * @returns {string}
+ */
+function labelOf(row, index) {
+  return row && row.__line ? `第 ${row.__line} 行` : `第 ${index + 1} 条`
+}
+
+/**
+ * 前缀是否覆盖这个文件（按路径段：`src` 覆盖 `src/a.mjs`，不覆盖 `srcx/a.mjs`）。
+ *
+ * @param {string} prefix
+ * @param {string} file
+ * @returns {boolean}
+ */
+function covers(prefix, file) {
+  const dir = pathListOf(prefix)[0]
+  if (!dir) return false
+  const target = String(file == null ? '' : file).replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '')
+  return target === dir || target.indexOf(`${dir}/`) === 0
+}
+
+/**
+ * 这条码管不管这个文件。
+ *
+ * @param {object} code
+ * @param {string} file
+ * @returns {boolean}
+ */
+function appliesTo(code, file) {
+  const exclude = pathListOf(code && code.exclude)
+  for (const dir of exclude) {
+    if (covers(dir, file)) return false
+  }
+  const include = pathListOf(code && code.include)
+  if (include.length === 0) return true
+  for (const dir of include) {
+    if (covers(dir, file)) return true
+  }
+  return false
+}
+
+/**
+ * 给人看的一句话：这条码覆盖哪些目录。
+ *
+ * @param {object} code
+ * @returns {string}
+ */
+function scopeLabelOf(code) {
+  const include = pathListOf(code && code.include)
+  const exclude = pathListOf(code && code.exclude)
+  if (include.length === 0 && exclude.length === 0) return '全部源文件'
+  const parts = [include.length > 0 ? `只含 ${include.join(', ')}` : '全部源文件']
+  if (exclude.length > 0) parts.push(`排除 ${exclude.join(', ')}`)
+  return parts.join('；')
+}
+
+/**
+ * Debug 在前、质量在后，同族按码排。
+ *
+ * @param {object} a
+ * @param {object} b
+ * @returns {number}
+ */
+function compareRows(a, b) {
+  if (a.kind !== b.kind) return a.kind === 'debug' ? -1 : 1
+  return String(a.code).localeCompare(String(b.code))
+}
+
+/**
+ * @param {Array<object>} rows
+ * @returns {{ total: number, debug: number, quality: number }}
+ */
+function countsOf(rows) {
+  const list = rows || []
+  return {
+    total: list.length,
+    debug: list.filter((row) => row.kind === 'debug').length,
+    quality: list.filter((row) => row.kind === 'quality').length,
+  }
+}
+
+/**
+ * 新增一行时给个空位上没人用的码。
+ *
+ * @param {Array<object>} rows
+ * @param {'debug'|'quality'} kind
+ * @returns {string}
+ */
+function nextCode(rows, kind) {
+  const prefix = kind === 'quality' ? 'Q' : 'D'
+  let max = 0
+  for (const row of rows || []) {
+    const code = String(row.code == null ? '' : row.code).trim()
+    if (!CODE_PATTERN.test(code) || code.charAt(0).toUpperCase() !== prefix) continue
+    const value = Number(code.slice(1))
+    if (value > max) max = value
+  }
+  // 码的习惯写法是 D001：补到 3 位，超过 999 自然变长。
+  return prefix + String(max + 1).padStart(3, '0')
+}
+
+</script>
+<script>
+
+(function () {
+  var state = { rows: [], handle: null, name: '', dirty: false, loadProblems: [] }
+  var el = {
+    tbody: document.getElementById('rows'),
+    file: document.getElementById('file'),
+    counts: document.getElementById('counts'),
+    mode: document.getElementById('mode'),
+    status: document.getElementById('status'),
+    banner: document.getElementById('banner'),
+    open: document.getElementById('open'),
+    save: document.getElementById('save'),
+    saveas: document.getElementById('saveas'),
+    add: document.getElementById('add'),
+    sort: document.getElementById('sort'),
+    picker: document.getElementById('picker')
+  }
+  var CAN_OPEN = typeof window.showOpenFilePicker === 'function'
+  var CAN_SAVE = typeof window.showSaveFilePicker === 'function'
+
+  function esc(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (char) {
+      if (char === '&') return '&amp;'
+      if (char === '<') return '&lt;'
+      if (char === '>') return '&gt;'
+      if (char === '"') return '&quot;'
+      return '&#39;'
+    })
+  }
+
+  function kindOptions(current) {
+    return ['debug', 'quality'].map(function (kind) {
+      return '<option value="' + kind + '"' + (kind === current ? ' selected' : '') + '>' + (kind === 'quality' ? '质量' : 'Debug') + '</option>'
+    }).join('')
+  }
+
+  function sevOptions(current) {
+    var known = SEVERITIES.map(function (sev) {
+      return '<option value="' + sev + '"' + (sev === current ? ' selected' : '') + '>' + sev + '</option>'
+    }).join('')
+    // 文件里写了不在候选里的值：原样显示出来，否则下拉框会假装它是 error。
+    if (SEVERITIES.indexOf(current) < 0) {
+      return '<option value="' + esc(current) + '" selected>' + esc(current) + '</option>' + known
+    }
+    return known
+  }
+
+  function rowHtml(row, index) {
+    return '<tr data-i="' + index + '">' +
+      '<td class="idx">' + (index + 1) + '</td>' +
+      '<td><textarea data-f="code" rows="1" spellcheck="false" placeholder="D001">' + esc(row.code) + '</textarea></td>' +
+      '<td><select data-f="kind">' + kindOptions(row.kind) + '</select></td>' +
+      '<td><select data-f="severity">' + sevOptions(row.severity) + '</select></td>' +
+      '<td><textarea data-f="title" rows="1" placeholder="一句话说明这条规则">' + esc(row.title) + '</textarea></td>' +
+      '<td><textarea data-f="rule" rows="1" placeholder="文档原文">' + esc(row.rule) + '</textarea></td>' +
+      '<td><textarea data-f="detect" rows="1" placeholder="怎么检查">' + esc(row.detect) + '</textarea></td>' +
+      '<td><textarea data-f="include" rows="1" spellcheck="false" placeholder="全部源文件">' + esc(pathListOf(row.include).join('\n')) + '</textarea></td>' +
+      '<td><textarea data-f="exclude" rows="1" spellcheck="false" placeholder="不排除">' + esc(pathListOf(row.exclude).join('\n')) + '</textarea></td>' +
+      '<td class="ops">' +
+        '<button class="icon" data-op="up" title="上移">&#8593;</button>' +
+        '<button class="icon" data-op="down" title="下移">&#8595;</button>' +
+        '<button class="icon del" data-op="del" title="删除">&#10005;</button>' +
+      '</td>' +
+      '</tr>'
+  }
+
+  /**
+   * 行内所有多行文本框取同一个高度，以内容最高的那栏为准；
+   * 高度按 scrollHeight 算，所以整段文本就地展开，不出现内部滚动条。
+   */
+  function fitRow(tr) {
+    var boxes = Array.prototype.slice.call(tr.querySelectorAll('textarea[data-f]'))
+    if (boxes.length === 0) return
+    boxes.forEach(function (box) {
+      box.style.height = 'auto'
+    })
+    var tallest = 0
+    boxes.forEach(function (box) {
+      var extra = box.offsetHeight - box.clientHeight
+      if (box.scrollHeight + extra > tallest) tallest = box.scrollHeight + extra
+    })
+    boxes.forEach(function (box) {
+      box.style.height = tallest + 'px'
+    })
+  }
+
+  function fitAll() {
+    var rows = el.tbody.children
+    for (var i = 0; i < rows.length; i += 1) fitRow(rows[i])
+  }
+
+  function renderTable() {
+    if (state.rows.length === 0) {
+      el.tbody.innerHTML = '<tr><td colspan="10" class="empty">还没有内容：点「打开 codes.jsonl」，或者「新增一条」从头写。</td></tr>'
+    } else {
+      el.tbody.innerHTML = state.rows.map(rowHtml).join('')
+      fitAll()
+    }
+    refresh()
+  }
+
+  function showBanner(kind, text) {
+    el.banner.className = 'banner ' + kind
+    el.banner.textContent = text
+    el.banner.hidden = false
+  }
+
+  function hideBanner() {
+    el.banner.hidden = true
+    el.banner.textContent = ''
+  }
+
+  function setStatus(text) {
+    el.status.textContent = text || ''
+  }
+
+  function refresh() {
+    var problems = validateRows(state.rows)
+    var rows = el.tbody.children
+    for (var i = 0; i < rows.length; i++) {
+      var tr = rows[i]
+      tr.className = ''
+      var fields = tr.querySelectorAll('[data-f]')
+      for (var j = 0; j < fields.length; j++) fields[j].classList.remove('bad')
+    }
+    var byIndex = {}
+    problems.forEach(function (problem) {
+      if (problem.index < 0) return
+      if (!byIndex[problem.index]) byIndex[problem.index] = []
+      byIndex[problem.index].push(problem)
+    })
+    Object.keys(byIndex).forEach(function (key) {
+      var tr = rows[Number(key)]
+      if (!tr) return
+      tr.className = 'bad'
+      byIndex[key].forEach(function (problem) {
+        var cell = problem.field ? tr.querySelector('[data-f="' + problem.field + '"]') : null
+        if (cell) cell.classList.add('bad')
+      })
+    })
+
+    var counts = countsOf(state.rows)
+    el.counts.textContent = '共 ' + counts.total + ' 条（Debug ' + counts.debug + ' / 质量 ' + counts.quality + '）'
+    var blocked = problems.length > 0 || state.rows.length === 0
+    el.save.disabled = blocked
+    el.saveas.disabled = state.rows.length === 0
+
+    var messages = problems.map(function (problem) { return problem.message })
+    if (messages.length === 0) messages = state.loadProblems.slice()
+    if (messages.length > 0) {
+      var more = messages.length > 4 ? '（还有 ' + (messages.length - 4) + ' 处）' : ''
+      showBanner(problems.length > 0 ? 'err' : 'warn', messages.slice(0, 4).join('；') + more)
+    } else if (state.dirty) {
+      showBanner('warn', '有未保存的修改')
+    } else {
+      hideBanner()
+    }
+
+    el.file.textContent = state.name || '未打开文件'
+    el.mode.textContent = '保存方式：' + (state.handle ? '直接写回原文件' : CAN_SAVE ? '另存为（会提示你选文件）' : '下载')
+  }
+
+  function applyField(target) {
+    var field = target.getAttribute('data-f')
+    if (!field) return false
+    var tr = target.parentNode.parentNode
+    var index = Number(tr.getAttribute('data-i'))
+    var row = state.rows[index]
+    if (!row) return false
+    if (field === 'include' || field === 'exclude') {
+      row[field] = pathListOf(target.value)
+    } else {
+      row[field] = target.value
+    }
+    if (field === 'code') {
+      var kind = kindOfCode(row.code)
+      if (kind && kind !== row.kind) {
+        row.kind = kind
+        var select = tr.querySelector('select[data-f="kind"]')
+        if (select) select.value = kind
+      }
+    }
+    state.dirty = true
+    setStatus('未保存')
+    // 改完一栏，整行重新对齐高度：本行其他栏跟着它长/缩。
+    fitRow(tr)
+    refresh()
+    return true
+  }
+
+  function moveRow(from, delta) {
+    var to = from + delta
+    if (to < 0 || to >= state.rows.length) return
+    var row = state.rows.splice(from, 1)[0]
+    state.rows.splice(to, 0, row)
+    state.dirty = true
+    renderTable()
+  }
+
+  function onField(event) {
+    applyField(event.target)
+  }
+
+  function onSelect(event) {
+    applyField(event.target)
+  }
+
+  function onClick(event) {
+    var button = event.target.closest ? event.target.closest('[data-op]') : null
+    if (!button) return
+    var tr = button.parentNode.parentNode
+    var index = Number(tr.getAttribute('data-i'))
+    var op = button.getAttribute('data-op')
+    if (op === 'del') {
+      state.rows.splice(index, 1)
+      state.dirty = true
+      renderTable()
+      return
+    }
+    if (op === 'up') moveRow(index, -1)
+    if (op === 'down') moveRow(index, 1)
+  }
+
+  function addRow() {
+    var rows = state.rows
+    var last = rows[rows.length - 1]
+    var kind = last && last.kind === 'quality' ? 'quality' : 'debug'
+    var row = normalizeRow({ code: nextCode(rows, kind), kind: kind })
+    rows.push(row)
+    state.dirty = true
+    renderTable()
+    var tr = el.tbody.children[rows.length - 1]
+    if (!tr) return
+    var select = tr.querySelector('select[data-f="kind"]')
+    if (select) select.value = row.kind
+    var title = tr.querySelector('[data-f="title"]')
+    if (title) title.focus()
+  }
+
+  function sortRows() {
+    state.rows.sort(compareRows)
+    state.dirty = true
+    renderTable()
+  }
+
+  function download(text) {
+    var blob = new Blob([text], { type: 'application/x-ndjson' })
+    var url = URL.createObjectURL(blob)
+    var link = document.createElement('a')
+    link.href = url
+    link.download = state.name || 'codes.jsonl'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    setTimeout(function () { URL.revokeObjectURL(url) }, 2000)
+    state.dirty = false
+    setStatus('已下载 ' + (state.name || 'codes.jsonl') + '（请用它覆盖原文件）')
+    refresh()
+  }
+
+  async function load(file, handle) {
+    var text = await file.text()
+    var parsed = parseCodes(text)
+    state.rows = parsed.rows
+    state.handle = handle || null
+    state.name = file.name || 'codes.jsonl'
+    state.dirty = false
+    state.loadProblems = parsed.problems.map(function (problem) {
+      return problem.message + '（保存会丢掉这一行）'
+    })
+    renderTable()
+    setStatus('已载入 ' + state.name)
+  }
+
+  async function openFile() {
+    if (CAN_OPEN) {
+      try {
+        var picked = await window.showOpenFilePicker({
+          multiple: false,
+          types: [{ description: 'codes.jsonl', accept: { 'text/plain': ['.jsonl', '.json'] } }]
+        })
+        await load(await picked[0].getFile(), picked[0])
+        return
+      } catch (error) {
+        if (error && error.name === 'AbortError') return
+        setStatus('直接打开失败，改用文件选择框')
+      }
+    }
+    el.picker.click()
+  }
+
+  async function writeTo(handle, text) {
+    var writable = await handle.createWritable()
+    await writable.write(text)
+    await writable.close()
+  }
+
+  async function save() {
+    var problems = validateRows(state.rows)
+    if (problems.length > 0) {
+      showBanner('err', problems[0].message)
+      return
+    }
+    var text = serializeCodes(state.rows)
+    try {
+      if (state.handle && typeof state.handle.createWritable === 'function') {
+        await writeTo(state.handle, text)
+      } else {
+        await saveAs()
+        return
+      }
+      state.dirty = false
+      state.loadProblems = []
+      setStatus('已保存到 ' + state.name)
+      refresh()
+    } catch (error) {
+      if (error && error.name === 'AbortError') return
+      showBanner('err', '保存失败：' + ((error && error.message) || error) + '。可以试「另存为…」')
+    }
+  }
+
+  async function saveAs() {
+    var problems = validateRows(state.rows)
+    if (problems.length > 0) {
+      showBanner('err', problems[0].message)
+      return
+    }
+    var text = serializeCodes(state.rows)
+    if (!CAN_SAVE) {
+      download(text)
+      return
+    }
+    try {
+      var handle = await window.showSaveFilePicker({
+        suggestedName: state.name || 'codes.jsonl',
+        types: [{ description: 'codes.jsonl', accept: { 'text/plain': ['.jsonl'] } }]
+      })
+      await writeTo(handle, text)
+      state.handle = handle
+      state.name = handle.name || state.name
+      state.dirty = false
+      state.loadProblems = []
+      setStatus('已保存到 ' + state.name)
+      refresh()
+    } catch (error) {
+      if (error && error.name === 'AbortError') return
+      showBanner('err', '另存为失败：' + ((error && error.message) || error) + '。改用下载？')
+      download(text)
+    }
+  }
+
+  el.open.addEventListener('click', openFile)
+  el.save.addEventListener('click', save)
+  el.saveas.addEventListener('click', saveAs)
+  el.add.addEventListener('click', addRow)
+  el.sort.addEventListener('click', sortRows)
+  el.picker.addEventListener('change', function () {
+    var file = el.picker.files && el.picker.files[0]
+    if (file) load(file, null)
+    el.picker.value = ''
+  })
+  el.tbody.addEventListener('input', onField)
+  el.tbody.addEventListener('change', onSelect)
+  el.tbody.addEventListener('click', onClick)
+
+  window.addEventListener('dragover', function (event) { event.preventDefault() })
+  window.addEventListener('drop', function (event) {
+    if (!event.dataTransfer || !event.dataTransfer.files || event.dataTransfer.files.length === 0) return
+    event.preventDefault()
+    load(event.dataTransfer.files[0], null)
+  })
+  window.addEventListener('beforeunload', function (event) {
+    if (!state.dirty) return
+    event.preventDefault()
+    event.returnValue = ''
+  })
+  // 列宽随窗口变，同一个文本框能折的行数也变：重算高度。
+  var resizeTimer = null
+  window.addEventListener('resize', function () {
+    if (resizeTimer) clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(fitAll, 80)
+  })
+
+  renderTable()
+  setStatus(CAN_OPEN ? '' : '这个浏览器不支持直接写回文件，保存时请选择「另存为」覆盖原文件')
+})()
+
+</script>
+</body>
+</html>
