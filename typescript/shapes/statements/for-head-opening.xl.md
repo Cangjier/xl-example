@@ -238,6 +238,9 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
+if (unit.IsTriviaToken) {
+  return ShapeStates.Uncertain;
+}
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(";")) {
   return ShapeStates.Reject;
 }
@@ -270,7 +273,10 @@ if (head.Segment === 0) {
   );
 } else {
   head.Segment = 2;
-  head.CatalogGuide = new CatalogGuide([new ForClosePossibleShape()], null);
+  head.CatalogGuide = new CatalogGuide(
+    [new ForClauseStartPossibleShape(), new ForClosePossibleShape()],
+    null,
+  );
 }
 head.MountedUnit = null;
 return this.StampCreated(semicolon, context);

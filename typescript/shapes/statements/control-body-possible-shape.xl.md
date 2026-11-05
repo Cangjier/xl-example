@@ -17,6 +17,9 @@ import { CallPossibleShape } from "../expressions/call-possible-shape.xl.md"
 import { ConditionCreatePossibleShape } from "../conditions/condition-create-possible-shape.xl.md"
 import { ControlStatementShape } from "./control-statement-shape.xl.md"
 import { ControlBodyEndPossibleShape } from "./control-body-end-possible-shape.xl.md"
+import { ControlElsePossibleShape } from "./control-else-possible-shape.xl.md"
+import { DoWhileKeywordPossibleShape } from "./do-while-keyword-possible-shape.xl.md"
+import { EmptyStatementShape } from "./empty-statement-shape.xl.md"
 import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 import { IfStatementShape } from "./if-statement-shape.xl.md"
 import { BlockShape } from "./block-shape.xl.md"
@@ -49,6 +52,12 @@ if (unit.IsTriviaToken) {
 if (unit instanceof Symbol) {
   if (!unit.Closed) {
     return ShapeStates.Uncertain;
+  }
+  if (unit.Is(";")) {
+    if (!ControlBodyPossibleShape.FollowsHead(host, units, tokenIndex)) {
+      return ShapeStates.Reject;
+    }
+    return ShapeStates.Accept;
   }
   if (!unit.Is("{")) {
     return ShapeStates.Reject;
@@ -104,7 +113,7 @@ if (prev !== null && !ControlBodyPossibleShape.IsOperand(prev) && !isElseHead) {
   return false;
 }
 if (unit instanceof Symbol) {
-  return unit.Closed && unit.Is("{");
+  return unit.Closed && (unit.Is("{") || unit.Is(";"));
 }
 if (unit instanceof Common && unit.Closed && unit.Is("if")) {
   return true;
@@ -126,6 +135,27 @@ const units = host.Data;
 const control = host as ControlStatementShape;
 const isElseBody = ControlBodyPossibleShape.IsElseHead(control, units, tokenIndex);
 const unit = units[tokenIndex];
+if (unit instanceof Symbol && unit.Is(";")) {
+  const pos = ItemUtil.PositionOf(units, tokenIndex);
+  const body = EmptyStatementShape.FromSemicolon(unit, pos);
+  units.splice(tokenIndex, 1, body);
+  body.Parent = host;
+  if (isElseBody) {
+    control.ElseBody = body;
+  } else {
+    control.Body = body;
+  }
+  host.MountedUnit = null;
+  const waiting = ControlStatementShape.BodyClosed(control, body, body.SourceRange.End, context);
+  if (waiting !== null) {
+    if ((waiting as ControlStatementShape).Kind === "do") {
+      DoWhileKeywordPossibleShape.Arm(waiting as ControlStatementShape);
+    } else {
+      ControlElsePossibleShape.Arm(waiting as ControlStatementShape);
+    }
+  }
+  return this.StampCreated(body, context);
+}
 if (unit instanceof Symbol && unit.Is("{")) {
   const pos = ItemUtil.PositionOf(units, tokenIndex);
   const block = BlockShape.FromOpen(unit, pos);
