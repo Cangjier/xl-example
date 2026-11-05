@@ -9,6 +9,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ExpressionUtil } from "../expressions/expression-util.xl.md"
 import { OperandUtil } from "../expressions/operand-util.xl.md"
@@ -37,20 +38,22 @@ import { StatementGuide } from "./statement-guide.xl.md"
 
 # class ControlBodyPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 if (!(host instanceof ControlStatementShape)) {
   return ShapeStates.Reject;
 }
 if (!host.BodyFirst && host.Condition === null) {
   return ShapeStates.Reject;
 }
-const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -110,13 +113,15 @@ if (prev === host.Condition) {
 return host.ElseKeyword !== null && prev === host.ElseKeyword;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
 const prev = prevIndex >= 0 ? units[prevIndex] : null;
 const isElseHead = prev !== null && prev instanceof Common && prev.Closed && prev.Is("else");
@@ -145,13 +150,15 @@ const name = unit.constructor.name;
 return unit.Closed && (name === "IdentifierShape" || name === "NumericLiteralShape" || name === "BinaryExpressionShape" || name === "CallExpressionShape" || name === "ConditionalExpressionShape" || name === "PostfixUnaryExpressionShape" || name === "UnaryExpressionShape" || name === "PrefixUnaryExpressionShape" || name === "TypeOfExpressionShape" || name === "VoidExpressionShape" || name === "DeleteExpressionShape" || name === "PropertyAccessExpressionShape" || name === "ElementAccessExpressionShape");
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 const control = host as ControlStatementShape;
 const isElseBody = ControlBodyPossibleShape.IsElseHead(control, units, tokenIndex);
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit instanceof Symbol && unit.Is(";")) {
   const pos = ItemUtil.PositionOf(units, tokenIndex);
   const body = EmptyStatementShape.FromSemicolon(unit, pos);
@@ -223,7 +230,7 @@ if (unit instanceof Symbol && ExpressionUtil.IsPrefixOperator(unit)) {
     control.Body = body;
   }
   host.MountedUnit = body;
-  const built = new PrefixUnaryPossibleShape().BuildByIndex(body, 0, guide, context);
+  const built = new PrefixUnaryPossibleShape().BuildByIndex(new TokenIndex(body, 0), guide, context);
   if (built instanceof ShapeToken) {
     built.Pos = pos;
   }
