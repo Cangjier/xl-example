@@ -65,7 +65,8 @@ n=4000 时相差约 **340 倍**，曲线从二次变平。
 需要注意的是，此处行为规范不涉及basic token。
 - 只允许查看tokenIndex之前，禁止查看tokenIndex之后，因为此时tokenIndex之后的数据不一定准备好。（包括过程中使用的工具函数）
 - compute/build过程中发生的异常禁止catch吃掉，这些异常是possible诊断，是用户期望看到的信息。
-- possible/build禁止跳跃式处理（除了trivia），如 shape1, basic token1, shape2, ...; 此时basic token1尚未被消费，必须前置basic token确定形状后，才能处理后续（除了trival类型）。
+- possible/end禁止跳跃式处理（除了trivia），如 shape1, basic token1, shape2, ...; 此时basic token1尚未被消费，必须前置basic token确定形状后，才能处理后续（除了trival类型）。
+- possible/end禁止读取原文（基于source range / document读取原文），只能基于basic token进行工作。
 
 ### shape tokn关键字段
 CreatedAt 必须是实际创建位置
