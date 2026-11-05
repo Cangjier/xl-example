@@ -104,11 +104,8 @@ if (node instanceof TypeLiteralShape || node instanceof MappedTypeShape) {
     || node instanceof ConstructorTypeShape) {
   at = node.Data.length > 0 ? node.Data[0].SourceRange.End : start;
 } else if (node instanceof TypeOperatorShape || node instanceof TypeQueryShape) {
-  const operand = node.Data.length > 0 ? node.Data[0] : null;
-  const document = node.SourceRange.Document;
-  if (operand !== null && document !== null) {
-    const keyword = document.GetRaw(start, operand.SourceRange.Start).trimEnd();
-    at = start + keyword.length;
+  if (node.Data.length > 0 && node.Keyword.length > 0) {
+    at = start + node.Keyword.length;
   }
 } else if (node instanceof ImportTypeShape) {
   at = node.Data.length > 0 ? node.Data[0].SourceRange.Start : start;
