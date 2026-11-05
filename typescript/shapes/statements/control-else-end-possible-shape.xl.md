@@ -10,6 +10,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { ControlStatementShape } from "./control-statement-shape.xl.md"
 import { DoWhileKeywordPossibleShape } from "./do-while-keyword-possible-shape.xl.md"
 ```
@@ -18,17 +19,19 @@ import { DoWhileKeywordPossibleShape } from "./do-while-keyword-possible-shape.x
 
 # class ControlElseEndPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 if (!(host instanceof ControlStatementShape) || host.Body === null) {
   return ShapeStates.Reject;
 }
-const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -41,13 +44,15 @@ if (ControlElseEndPossibleShape.CanEnd(unit)) {
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex !== units.length - 1) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken || !unit.Closed) {
   return false;
 }
@@ -76,15 +81,17 @@ while (top.Parent instanceof ControlStatementShape) {
 return top;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const control = host as ControlStatementShape;
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
+const control = host as ControlStatementShape;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   throw new Error("ControlElseEndPossibleShape: 下标越界");
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 let startIndex = tokenIndex;
 for (let at = tokenIndex - 1; at >= 0; at--) {
   if (units[at].IsTriviaToken) {
