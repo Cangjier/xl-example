@@ -53,7 +53,18 @@ const last = condition.Last();
 if (last !== null && !last.Closed) {
   last.TryToClose(context);
 }
-const code = condition.Data.filter((item) => !item.IsTriviaToken && !item.IsBasicToken);
+const units = condition.Data;
+const code: Array<Token> = [];
+for (let cursor = 0; cursor < tokenIndex; cursor++) {
+  const item = units[cursor];
+  if (item.IsTriviaToken) {
+    continue;
+  }
+  if (item.IsBasicToken) {
+    throw new Error("ConditionEndPossibleShape: basic token 未被消费：" + item.AstText() + "（下标 " + cursor + "）");
+  }
+  code.push(item);
+}
 const expression = ConditionCloseDispatch.Build(code, condition.Template, context);
 condition.SourceRange.End = close.SourceRange.End;
 condition.Closed = true;
