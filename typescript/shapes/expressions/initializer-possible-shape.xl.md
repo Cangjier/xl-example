@@ -61,7 +61,11 @@ if (before < 0) {
   return false;
 }
 const previous = units[before];
-return previous instanceof Symbol && previous.Is("=");
+if (!(previous instanceof Symbol) || !previous.Is("=")) {
+  return false;
+}
+const text = unit.TempToString();
+return text !== "typeof" && text !== "void" && text !== "delete";
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token

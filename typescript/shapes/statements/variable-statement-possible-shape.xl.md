@@ -15,6 +15,9 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { InitializerPossibleShape } from "../expressions/initializer-possible-shape.xl.md"
 import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-possible-shape.xl.md"
 import { CallPossibleShape } from "../expressions/call-possible-shape.xl.md"
+import { ConditionalPossibleShape } from "../expressions/conditional-possible-shape.xl.md"
+import { PostfixUnaryPossibleShape } from "../expressions/postfix-unary-possible-shape.xl.md"
+import { PrefixUnaryPossibleShape } from "../expressions/prefix-unary-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "../expressions/suffix-access-possible-shape.xl.md"
 import { AsiPossibleShape } from "./asi-possible-shape.xl.md"
 import { VariableDeclarationShape } from "../declarations/variable-declaration-shape.xl.md"
@@ -81,7 +84,7 @@ declaration.Pos = identifierPos;
 declaration.SignIn(identifier.SourceRange.Start);
 declaration.Add(identifier);
 declaration.CatalogGuide = new CatalogGuide(
-  [new InitializerPossibleShape(), new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new AsiPossibleShape()],
+  [new InitializerPossibleShape(), new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new ConditionalPossibleShape(), new PrefixUnaryPossibleShape(), new PostfixUnaryPossibleShape(), new AsiPossibleShape()],
   new VariableStatementEndPossibleShape(),
 );
 const list = new VariableDeclarationListShape(host.Template);

@@ -52,6 +52,13 @@ return unit instanceof Common && unit.Closed && RightOperandPossibleShape.IsWait
 ## static method IsWaitingForOperand:(units:Array<Token>, tokenIndex:int)=>bool
 
 ```ts
+const head = units[tokenIndex];
+if (head instanceof Common && head.Closed) {
+  const text = head.TempToString();
+  if (text === "typeof" || text === "void" || text === "delete") {
+    return false;
+  }
+}
 for (let at = tokenIndex - 1; at >= 0; at--) {
   const item = units[at];
   if (item.IsTriviaToken || item.IsBasicToken) {
