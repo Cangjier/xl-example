@@ -5,6 +5,7 @@ import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 ```
 
@@ -52,7 +53,7 @@ token.Parent = parent;
 parent.Data.splice(at + 1 + tail.length, 0, token);
 const block = parent as UnitToken;
 block.MountedUnit = null;
-block.ComputePossibleShapesByIndex(at + 1 + tail.length, context, PossibleSource.Close);
+block.ComputePossibleShapesByIndex(new TokenIndex(block, at + 1 + tail.length), context, PossibleSource.Close);
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
