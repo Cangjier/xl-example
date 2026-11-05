@@ -7,6 +7,7 @@ import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { StatementUtil } from "./statement-util.xl.md"
@@ -33,10 +34,12 @@ import { VariableStatementShape } from "./variable-statement-shape.xl.md"
 
 # class VariableStatementPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (start >= units.length) {
   return ShapeStates.Uncertain;
@@ -48,9 +51,11 @@ if (!(head instanceof Common) || head.TempToString() !== "let") {
 return ShapeStates.Uncertain;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 const keywordIndex = start;
 if (keywordIndex >= units.length) {
@@ -68,10 +73,12 @@ const identifier = units[identifierIndex];
 return identifier instanceof Common && identifier.Closed;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, catalog.PossibleShapesComputeCache);
 const keywordIndex = start;
 const identifierIndex = StatementUtil.NextCode(units, keywordIndex + 1);
