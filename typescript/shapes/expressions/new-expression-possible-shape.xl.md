@@ -17,6 +17,7 @@ import { ExpressionUtil } from "./expression-util.xl.md"
 import { NewExpressionShape } from "./new-expression-shape.xl.md"
 import { OperandUtil } from "./operand-util.xl.md"
 import { SuffixAccessPossibleShape } from "./suffix-access-possible-shape.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { UnaryExpressionShape } from "./unary-expression-shape.xl.md"
 ```
 
@@ -24,14 +25,16 @@ import { UnaryExpressionShape } from "./unary-expression-shape.xl.md"
 
 # class NewPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -50,9 +53,11 @@ if (!NewPossibleShape.ShouldBuild(units, tokenIndex)) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return NewPossibleShape.ShouldBuild(units, tokenIndex);
 ```
 
@@ -86,11 +91,13 @@ return new CatalogGuide(
 );
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const keyword = units[tokenIndex] as Common;
+const tokenIndex = index.Index;
+const keyword = index.At(tokenIndex) as Common;
 const pos = OperandUtil.PositionOf(units, tokenIndex);
 const shape = new NewExpressionShape(host.Template);
 shape.Pos = pos;
@@ -107,14 +114,16 @@ return this.StampCreated(shape, context);
 
 # class NewCalleePossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -130,9 +139,11 @@ if (!NewCalleePossibleShape.ShouldBuild(units, tokenIndex)) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return NewCalleePossibleShape.ShouldBuild(units, tokenIndex);
 ```
 
@@ -152,11 +163,13 @@ if (!ExpressionUtil.CanBeOperand(unit)) {
 return !ExpressionUtil.HasOperandBefore(units, tokenIndex);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const common = units[tokenIndex] as Common;
+const tokenIndex = index.Index;
+const common = index.At(tokenIndex) as Common;
 const callee = OperandUtil.FromCommon(common, OperandUtil.PositionOf(units, tokenIndex));
 common.Replace(callee);
 return this.StampCreated(callee, context);
@@ -164,14 +177,16 @@ return this.StampCreated(callee, context);
 
 # class NewExpressionEndPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -184,9 +199,11 @@ if (!(host instanceof NewExpressionShape)) {
 return NewExpressionEndPossibleShape.ShouldEnd(units, tokenIndex) ? ShapeStates.Accept : ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return NewExpressionEndPossibleShape.ShouldEnd(units, tokenIndex);
 ```
 
@@ -212,11 +229,13 @@ if (unit.IsAny([";", ")", ",", "]", "}", ":"])) {
 return BinaryOperatorTable.Contains(unit.TempToString());
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const trigger = units[tokenIndex];
+const tokenIndex = index.Index;
+const trigger = index.At(tokenIndex);
 let startIndex = tokenIndex;
 for (let at = tokenIndex - 1; at >= 0; at--) {
   const item = units[at];

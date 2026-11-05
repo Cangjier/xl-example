@@ -20,6 +20,7 @@ import { ParenthesizedExpressionShape } from "./parenthesized-expression-shape.x
 import { PostfixUnaryPossibleShape } from "./postfix-unary-possible-shape.xl.md"
 import { PrefixUnaryPossibleShape } from "./prefix-unary-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "./suffix-access-possible-shape.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { UnaryExpressionShape } from "./unary-expression-shape.xl.md"
 ```
 
@@ -27,14 +28,16 @@ import { UnaryExpressionShape } from "./unary-expression-shape.xl.md"
 
 # class ParenthesizedPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -53,9 +56,11 @@ if (!ParenthesizedPossibleShape.ShouldBuild(units, tokenIndex)) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return ParenthesizedPossibleShape.ShouldBuild(units, tokenIndex);
 ```
 
@@ -102,11 +107,13 @@ return new CatalogGuide(
 );
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const open = units[tokenIndex] as Symbol;
+const tokenIndex = index.Index;
+const open = index.At(tokenIndex) as Symbol;
 const pos = OperandUtil.PositionOf(units, tokenIndex);
 const shape = new ParenthesizedExpressionShape(host.Template);
 shape.Pos = pos;
@@ -123,14 +130,16 @@ return this.StampCreated(shape, context);
 
 # class ParenOperandPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -146,9 +155,11 @@ if (!ParenOperandPossibleShape.ShouldBuild(units, tokenIndex)) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return ParenOperandPossibleShape.ShouldBuild(units, tokenIndex);
 ```
 
@@ -168,11 +179,13 @@ if (!ExpressionUtil.CanBeOperand(unit)) {
 return !ExpressionUtil.HasOperandBefore(units, tokenIndex);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const common = units[tokenIndex] as Common;
+const tokenIndex = index.Index;
+const common = index.At(tokenIndex) as Common;
 const operand = OperandUtil.FromCommon(common, OperandUtil.PositionOf(units, tokenIndex));
 common.Replace(operand);
 return this.StampCreated(operand, context);
@@ -180,14 +193,16 @@ return this.StampCreated(operand, context);
 
 # class ParenthesizedEndPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -200,9 +215,11 @@ if (!(host instanceof ParenthesizedExpressionShape)) {
 return ParenthesizedEndPossibleShape.ShouldClose(units, tokenIndex) ? ShapeStates.Accept : ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return ParenthesizedEndPossibleShape.ShouldClose(units, tokenIndex);
 ```
 
@@ -219,11 +236,13 @@ if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(")")) {
 return ExpressionUtil.HasOperandBefore(units, tokenIndex);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const close = units[tokenIndex] as Symbol;
+const tokenIndex = index.Index;
+const close = index.At(tokenIndex) as Symbol;
 let startIndex = tokenIndex;
 for (let at = tokenIndex - 1; at >= 0; at--) {
   const item = units[at];

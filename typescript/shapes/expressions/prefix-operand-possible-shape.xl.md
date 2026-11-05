@@ -10,6 +10,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ExpressionUtil } from "./expression-util.xl.md"
 import { OperandUtil } from "./operand-util.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { UnaryExpressionShape } from "./unary-expression-shape.xl.md"
 ```
 
@@ -17,14 +18,16 @@ import { UnaryExpressionShape } from "./unary-expression-shape.xl.md"
 
 # class PrefixOperandPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -43,9 +46,11 @@ if (!PrefixOperandPossibleShape.ShouldBuild(units, tokenIndex)) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return PrefixOperandPossibleShape.ShouldBuild(units, tokenIndex);
 ```
 
@@ -62,11 +67,13 @@ if (!(unit instanceof Common) || !unit.Closed) {
 return ExpressionUtil.CanBeOperand(unit);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const common = units[tokenIndex] as Common;
+const tokenIndex = index.Index;
+const common = index.At(tokenIndex) as Common;
 const operand = OperandUtil.FromCommon(common, OperandUtil.PositionOf(units, tokenIndex));
 common.Replace(operand);
 if (host instanceof UnaryExpressionShape) {

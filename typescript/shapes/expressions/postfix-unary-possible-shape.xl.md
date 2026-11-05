@@ -12,20 +12,23 @@ import { ItemUtil } from "../item-util.xl.md"
 import { PostfixUnaryExpressionShape } from "../statements/postfix-unary-expression-shape.xl.md"
 import { ExpressionUtil } from "./expression-util.xl.md"
 import { MinusMinusTokenShape, PlusPlusTokenShape } from "./unary-token-shapes.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 ```
 
 # namespace cangjie
 
 # class PostfixUnaryPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -41,9 +44,11 @@ if (!PostfixUnaryPossibleShape.ShouldBuild(units, tokenIndex)) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return PostfixUnaryPossibleShape.ShouldBuild(units, tokenIndex);
 ```
 
@@ -64,11 +69,13 @@ if (operandIndex < 0) {
 return ExpressionUtil.IsClosedOperand(units[operandIndex]);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const operator = units[tokenIndex] as Symbol;
+const tokenIndex = index.Index;
+const operator = index.At(tokenIndex) as Symbol;
 const operandIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
 if (operandIndex < 0) {
   throw new Error("PostfixUnaryPossibleShape: 缺操作数");
