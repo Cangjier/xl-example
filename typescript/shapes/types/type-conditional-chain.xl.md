@@ -406,7 +406,10 @@ const unit = units[tokenIndex];
 const stage = conditional.Stage;
 const start = TypeConditionalScan.RunStart(units, units.length);
 if (stage < 2) {
-  TypeConditionalGrow.ParseRun(conditional, tokenIndex);
+  const node = TypeConditionalGrow.ParseRun(conditional, tokenIndex);
+  if (node !== null) {
+    PossibleShape.StampAll(node, context.Index);
+  }
   TypeConditionalGrow.CloseOperators(conditional, context);
   units.splice(start, 1);
   TypeConditionalGrow.TrimTail(units);
@@ -415,7 +418,10 @@ if (stage < 2) {
   return this.StampCreated(unit, context);
 }
 if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
-  TypeConditionalGrow.ParseRun(conditional, tokenIndex);
+  const node = TypeConditionalGrow.ParseRun(conditional, tokenIndex);
+  if (node !== null) {
+    PossibleShape.StampAll(node, context.Index);
+  }
   TypeConditionalGrow.CloseOperators(conditional, context);
   units.splice(start, 1);
   TypeConditionalGrow.TrimTail(units);
@@ -428,7 +434,10 @@ if (previous < 0) {
   throw new Error("TypeConditionalEndPossibleShape: 条件类型没有前一个代码单元");
 }
 const previousUnit = units[previous];
-TypeConditionalGrow.ParseRun(conditional, previous + 1);
+const node = TypeConditionalGrow.ParseRun(conditional, previous + 1);
+if (node !== null) {
+  PossibleShape.StampAll(node, context.Index);
+}
 TypeConditionalGrow.CloseOperators(conditional, context);
 const tail = units.splice(start);
 conditional.TryToClose(context);
