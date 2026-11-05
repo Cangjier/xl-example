@@ -7,6 +7,7 @@ import { PossibleShapeCache } from "./possible-shape-cache.xl.md"
 import { PossibleSource } from "./possible-source.xl.md"
 import { ShapeStates } from "./shape-states.xl.md"
 import { Token } from "./token.xl.md"
+import { TokenIndex } from "./token-index.xl.md"
 ```
 
 # namespace cangjie
@@ -40,36 +41,37 @@ for (let index = 0; index < shapes.length; index++) {
 ## method ComputePossibleShapes:(host:Token, context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 ```ts
-return this.ComputePossibleShapesByIndex(host, host.Data.length - 1, context, source);
+return this.ComputePossibleShapesByIndex(new TokenIndex(host, host.Data.length - 1), context, source);
 ```
 
-## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int, context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
+## method ComputePossibleShapesByIndex:(index:TokenIndex, context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 if (typeof context === "undefined") {
   throw new Error(`CatalogGuide: context 必须通过形参传入（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
 }
-const token = host.Data[tokenIndex];
-if (token === undefined) {
+if (!index.Has(tokenIndex)) {
   return ComputePossibleShapesStates.Nothing;
 }
 if (this.LastBuildTokenIndex === tokenIndex && this.LastBuildDataLength === host.Data.length) {
   return ComputePossibleShapesStates.Nothing;
 }
-for (const index of this.Candidates) {
-  if (this.PossibleShapes[index].ComputeByIndex(host, tokenIndex, this.PossibleShapesComputeCache, source) === ShapeStates.Reject) {
-    this.Candidates.delete(index);
+for (const shapeIndex of this.Candidates) {
+  if (this.PossibleShapes[shapeIndex].ComputeByIndex(index, this.PossibleShapesComputeCache, source) === ShapeStates.Reject) {
+    this.Candidates.delete(shapeIndex);
   }
 }
 let ended = false;
 if (this.EndPossible !== null) {
-  ended = this.EndPossible.ComputeByIndex(host, tokenIndex, this.PossibleShapesComputeCache, source) === ShapeStates.Accept;
+  ended = this.EndPossible.ComputeByIndex(index, this.PossibleShapesComputeCache, source) === ShapeStates.Accept;
   if (ended && this.Candidates.size > 0) {
     throw new Error(`CatalogGuide: 终结候选与其它候选同时成立（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
   }
 }
 if (ended && this.EndPossible !== null) {
-  this.EndPossible.BuildByIndex(host, tokenIndex, this, context);
+  this.EndPossible.BuildByIndex(index, this, context);
   this.LastBuildTokenIndex = tokenIndex;
   this.LastBuildDataLength = host.Data.length;
   this.Reset();
@@ -87,11 +89,11 @@ if (this.Candidates.size > 1) {
 if (this.Candidates.size !== 1) {
   throw new Error(`CatalogGuide: 唯一候选不变量被破坏（宿主 ${host.constructor.name}，下标 ${tokenIndex}，候选 ${this.Candidates.size} 个）`);
 }
-const index = Array.from(this.Candidates)[0];
-if (!this.PossibleShapes[index].IsBuildable(host.Data, tokenIndex, this.PossibleShapesComputeCache, context)) {
+const candidateIndex = Array.from(this.Candidates)[0];
+if (!this.PossibleShapes[candidateIndex].IsBuildable(index, this.PossibleShapesComputeCache, context)) {
   return ComputePossibleShapesStates.Waiting;
 }
-this.PossibleShapes[index].BuildByIndex(host, tokenIndex, this, context);
+this.PossibleShapes[candidateIndex].BuildByIndex(index, this, context);
 this.LastBuildTokenIndex = tokenIndex;
 this.LastBuildDataLength = host.Data.length;
 this.Reset();

@@ -7,6 +7,7 @@ import { PossibleSource } from "./possible-source.xl.md"
 import { ShapeStates } from "./shape-states.xl.md"
 import { ShapeToken } from "./shape-token.xl.md"
 import { Token } from "./token.xl.md"
+import { TokenIndex } from "./token-index.xl.md"
 ```
 
 # namespace cangjie
@@ -16,10 +17,10 @@ import { Token } from "./token.xl.md"
 ## method Compute:(host:Token, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
-return this.ComputeByIndex(host, host.Data.length - 1, cache, source);
+return this.ComputeByIndex(new TokenIndex(host, host.Data.length - 1), cache, source);
 ```
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 throw new Error("abstract member: ComputeByIndex");
@@ -28,16 +29,16 @@ throw new Error("abstract member: ComputeByIndex");
 ## method Build:(host:Token, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-return this.BuildByIndex(host, host.Data.length - 1, catalog, context);
+return this.BuildByIndex(new TokenIndex(host, host.Data.length - 1), catalog, context);
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
 return true;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
 throw new Error("abstract member: BuildByIndex");

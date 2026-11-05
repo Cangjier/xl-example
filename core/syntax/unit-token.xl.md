@@ -10,6 +10,7 @@ import { ReloadMessage } from "./messages/reload-message.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { Token } from "./token.xl.md"
+import { TokenIndex } from "./token-index.xl.md"
 import { Template } from "./templates/template.xl.md"
 ```
 
@@ -28,11 +29,11 @@ if (this.CatalogGuide !== null) {
 return ComputePossibleShapesStates.Nothing;
 ```
 
-## method ComputePossibleShapesByIndex:(tokenIndex:int, context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
+## method ComputePossibleShapesByIndex:(index:TokenIndex, context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 ```ts
 if (this.CatalogGuide !== null) {
-  return this.CatalogGuide.ComputePossibleShapesByIndex(this, tokenIndex, context, source);
+  return this.CatalogGuide.ComputePossibleShapesByIndex(index, context, source);
 }
 return ComputePossibleShapesStates.Nothing;
 ```
