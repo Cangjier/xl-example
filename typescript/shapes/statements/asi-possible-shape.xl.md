@@ -12,6 +12,7 @@ import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "../expressions/suffix-access-possible-shape.xl.md"
+import { CallPossibleShape } from "../expressions/call-possible-shape.xl.md"
 import { ExpressionStatementEndPossibleShape } from "./expression-statement-end-possible-shape.xl.md"
 import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 ```
@@ -76,7 +77,7 @@ return text === "let" || text === "debugger" || text === "type";
 
 ```ts
 const name = unit.constructor.name;
-if (name === "IdentifierShape" || name === "NumericLiteralShape" || name === "BinaryExpressionShape" || name === "PropertyAccessExpressionShape" || name === "ElementAccessExpressionShape") {
+if (name === "IdentifierShape" || name === "NumericLiteralShape" || name === "BinaryExpressionShape" || name === "CallExpressionShape" || name === "PropertyAccessExpressionShape" || name === "ElementAccessExpressionShape") {
   return unit.Closed;
 }
 return false;
@@ -177,7 +178,7 @@ next.Pos = pos;
 next.SignIn(current.SourceRange.Start);
 next.Add(operand);
 next.CatalogGuide = new CatalogGuide(
-  [new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape(), new AsiPossibleShape()],
+  [new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new AsiPossibleShape()],
   new ExpressionStatementEndPossibleShape(),
 );
 source.Data.splice(insertAt, 0, next);

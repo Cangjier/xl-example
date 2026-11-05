@@ -15,6 +15,7 @@ import { ConditionOperandPossibleShape } from "./condition-operand-possible-shap
 import { ConditionOperatorPossibleShape } from "./condition-operator-possible-shape.xl.md"
 import { ConditionEndPossibleShape } from "./condition-end-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "../expressions/suffix-access-possible-shape.xl.md"
+import { CallPossibleShape } from "../expressions/call-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -58,7 +59,7 @@ condition.Pos = ItemUtil.PositionOf(units, tokenIndex);
 condition.SignIn(open.SourceRange.Start);
 condition.SignOut(open.SourceRange.End);
 condition.CatalogGuide = new CatalogGuide(
-  [new ConditionOperandPossibleShape(), new SuffixAccessPossibleShape(), new ConditionOperatorPossibleShape()],
+  [new ConditionOperandPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new ConditionOperatorPossibleShape()],
   new ConditionEndPossibleShape(),
 );
 units.splice(tokenIndex, 1, condition);
