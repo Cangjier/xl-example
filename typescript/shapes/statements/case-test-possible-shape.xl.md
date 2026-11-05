@@ -12,6 +12,7 @@ import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { CaseClauseShape } from "./case-clause-shape.xl.md"
 import { CaseColonPossibleShape } from "./case-colon-possible-shape.xl.md"
+import { SuffixAccessPossibleShape } from "../expressions/suffix-access-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -61,7 +62,7 @@ const operand = OperandUtil.FromCommon(common, ItemUtil.PositionOf(units, tokenI
 units.splice(tokenIndex, 1, operand);
 operand.Parent = host;
 (host as CaseClauseShape).Test = operand;
-(host as CaseClauseShape).CatalogGuide = new CatalogGuide([new CaseColonPossibleShape()], null);
+(host as CaseClauseShape).CatalogGuide = new CatalogGuide([new SuffixAccessPossibleShape(), new CaseColonPossibleShape()], null);
 host.MountedUnit = null;
 return this.StampCreated(operand, context);
 ```

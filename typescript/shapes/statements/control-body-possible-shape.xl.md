@@ -12,6 +12,7 @@ import { ItemUtil } from "../item-util.xl.md"
 import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-possible-shape.xl.md"
+import { SuffixAccessPossibleShape } from "../expressions/suffix-access-possible-shape.xl.md"
 import { ConditionCreatePossibleShape } from "../conditions/condition-create-possible-shape.xl.md"
 import { ControlStatementShape } from "./control-statement-shape.xl.md"
 import { ControlBodyEndPossibleShape } from "./control-body-end-possible-shape.xl.md"
@@ -114,7 +115,7 @@ return unit instanceof Common && unit.Closed && OperandUtil.CanStartExpression(u
 
 ```ts
 const name = unit.constructor.name;
-return unit.Closed && (name === "IdentifierShape" || name === "NumericLiteralShape" || name === "BinaryExpressionShape" || name === "PostfixUnaryExpressionShape");
+return unit.Closed && (name === "IdentifierShape" || name === "NumericLiteralShape" || name === "BinaryExpressionShape" || name === "PostfixUnaryExpressionShape" || name === "PropertyAccessExpressionShape" || name === "ElementAccessExpressionShape");
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -163,7 +164,7 @@ body.Pos = pos;
 body.SignIn(common.SourceRange.Start);
 body.Add(operand);
 body.CatalogGuide = new CatalogGuide(
-  [new BinaryExpressionPossibleShape()],
+  [new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape()],
   new ControlBodyEndPossibleShape(),
 );
 units.splice(tokenIndex, 1, body);

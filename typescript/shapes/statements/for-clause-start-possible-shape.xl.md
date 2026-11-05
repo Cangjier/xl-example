@@ -12,6 +12,7 @@ import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { StatementUtil } from "./statement-util.xl.md"
 import { ConditionOperatorPossibleShape } from "../conditions/condition-operator-possible-shape.xl.md"
+import { SuffixAccessPossibleShape } from "../expressions/suffix-access-possible-shape.xl.md"
 import { ForClauseShape } from "./for-clause-shape.xl.md"
 import { ForClauseEndPossibleShape } from "./for-clause-end-possible-shape.xl.md"
 import { ForHeadShape } from "./for-head-shape.xl.md"
@@ -82,7 +83,7 @@ clause.Add(operand);
 clause.Parent = head;
 clause.SignOut(operand.SourceRange.End);
 clause.CatalogGuide = new CatalogGuide(
-  [new ConditionOperatorPossibleShape(), new PostfixPossibleShape(), new ForOfInKeywordPossibleShape()],
+  [new ConditionOperatorPossibleShape(), new SuffixAccessPossibleShape(), new PostfixPossibleShape(), new ForOfInKeywordPossibleShape()],
   new ForClauseEndPossibleShape(),
 );
 head.MountedUnit = clause;
