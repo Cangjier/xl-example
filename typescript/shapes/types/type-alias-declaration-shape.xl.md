@@ -6,6 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { TypeAliasParsed } from "./type-parser-result.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ConditionalTypeShape } from "./type-node-shapes.xl.md"
 import { TypeParameterShape } from "./type-node-shapes.xl.md"
 import { TypeReferenceShape } from "./type-node-shapes.xl.md"
@@ -44,6 +45,7 @@ if (this.HasBuiltType()) {
   }
   this.Closed = true;
   TypeAliasDeclarationShape.NormalizeRevisions(this);
+  PossibleShape.StampAll(this, context.Index);
   return CloseStates.Nothing;
 }
 const parsed = TypeParserApi.ParseAlias(this.Data, this.Data.length, this.Template);
@@ -51,6 +53,7 @@ const type = parsed.Type!;
 TypeAliasDeclarationShape.Apply(this, parsed, type.SourceRange.End);
 this.Closed = true;
 TypeAliasDeclarationShape.NormalizeRevisions(this);
+PossibleShape.StampAll(this, context.Index);
 return CloseStates.Nothing;
 ```
 

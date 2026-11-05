@@ -84,6 +84,7 @@ if (alias.HasBuiltType()) {
 } else {
   const parsed = TypeParserApi.ParseAlias(units, units.length, alias.Template);
   TypeAliasDeclarationShape.Apply(alias, parsed, end);
+  PossibleShape.StampAll(alias, context.Index);
   alias.Closed = true;
 }
 const parent = alias.Parent;
