@@ -59,7 +59,7 @@ if ((bits & BasicDispatch.BitMarker) !== 0) {
 }
 const preIndex = index - 1;
 if (preIndex >= 0) {
-  const pre = preIndex >= buffer.Start ? buffer.ValueAt(preIndex) : SourceRange.Whole(buffer.Document!).At(preIndex);
+  const pre = buffer.At(preIndex);
   if (pre === "/" && unit.IsUndo(preIndex)) {
     if (value === "*") {
       return AreaAnnotation.Transit(context, unit, buffer, index, value);
@@ -141,7 +141,7 @@ if (value === marker[0]) {
 }
 const preIndex = index - 1;
 if (preIndex >= 0) {
-  const pre = preIndex >= buffer.Start ? buffer.ValueAt(preIndex) : SourceRange.Whole(buffer.Document!).At(preIndex);
+  const pre = buffer.At(preIndex);
   if (pre === "/" && unit.IsUndo(preIndex)) {
     if (value === "*") {
       return AreaAnnotation.Transit(context, unit, buffer, index, value);

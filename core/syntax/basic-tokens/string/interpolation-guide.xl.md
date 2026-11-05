@@ -37,13 +37,12 @@ super(template);
 ```ts
 const Value = buffer.At(index);
 if (Value !== "{") {
-  const whole = SourceRange.Whole(buffer.Document!);
   if (this.BracketCount >= this.ParentString.InterpolationCount) {
     this.RemoveSelf();
     const Next = this.BracketCount - this.ParentString.InterpolationCount;
     for (let i = 0; i < Next; i++) {
       const ItemIndex = this.Items[i];
-      const Const = this.ParentString.AppendToLastConstString(whole.At(ItemIndex), ItemIndex, context);
+      const Const = this.ParentString.AppendToLastConstString(buffer.At(ItemIndex), ItemIndex, context);
       if (i === 0) {
         Const.TrySignIn(ItemIndex);
       }
@@ -63,7 +62,7 @@ if (Value !== "{") {
   } else {
     this.RemoveSelf();
     for (const ItemIndex of this.Items) {
-      this.ParentString.AppendToLastConstString(whole.At(ItemIndex), ItemIndex, context).TrySignIn(ItemIndex);
+      this.ParentString.AppendToLastConstString(buffer.At(ItemIndex), ItemIndex, context).TrySignIn(ItemIndex);
     }
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index));
   }

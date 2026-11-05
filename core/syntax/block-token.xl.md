@@ -64,7 +64,7 @@ if (this.MountedUnit !== null) {
   }
   return;
 }
-const value = buffer.ValueAt(index);
+const value = buffer.At(index);
 this.Default(context, buffer, index, value);
 if (context.Index === index) {
   context.Index = index + 1;

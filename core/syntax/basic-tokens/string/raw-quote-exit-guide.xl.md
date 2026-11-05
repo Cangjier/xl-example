@@ -50,9 +50,8 @@ if (value === this.StringChar) {
   }
 } else {
 
-  const whole = SourceRange.Whole(buffer.Document!);
   for (const i of this.Items) {
-    this.ParentString.AppendToLastConstString(whole.At(i), i, context).TrySignIn(i);
+    this.ParentString.AppendToLastConstString(buffer.At(i), i, context).TrySignIn(i);
   }
 
   context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index));

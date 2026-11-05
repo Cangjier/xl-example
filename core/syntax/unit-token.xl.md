@@ -75,7 +75,7 @@ try {
       index = context.Index;
       continue;
     }
-    const value = buffer.ValueAt(index);
+    const value = buffer.At(index);
     const exitState = this.ExitOrPre(context, buffer, index, value);
     if (exitState === BranchStates.Reload) {
       context.Messages.push(new ReloadMessage(null, index));

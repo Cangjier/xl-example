@@ -30,28 +30,13 @@ this.End = end ?? -1;
 return new SourceRange(document, start, end);
 ```
 
-## static method Whole:(document:Document)=>SourceRange
-
-```ts
-if (document.WholeRange === null) {
-  document.WholeRange = new SourceRange(document, 0, document.GetCount());
-}
-return document.WholeRange;
-```
-
 ## method At:(index:int)=>string
 
 ```ts
-if (!this.Has(index)) {
+if (index < 0 || this.Document === null) {
   throw SourceException.SourceRangeIndexOutOfRange;
 }
-return this.Document!.GetValue(index);
-```
-
-## method ValueAt:(index:int)=>string
-
-```ts
-return this.Document!.GetValue(index);
+return this.Document.GetValue(index);
 ```
 
 ## method Has:(index:int)=>bool

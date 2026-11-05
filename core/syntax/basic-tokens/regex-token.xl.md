@@ -120,7 +120,7 @@ const preIndex = index - 1;
 if (preIndex < 0) {
   return BranchStates.Undo;
 }
-const pre = buffer.Has(preIndex) ? buffer.At(preIndex) : SourceRange.Whole(buffer.Document!).At(preIndex);
+const pre = buffer.At(preIndex);
 if (pre !== "/" || !unit.IsUndo(preIndex) || value === "/") {
   return BranchStates.Undo;
 }
