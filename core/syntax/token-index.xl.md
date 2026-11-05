@@ -24,6 +24,9 @@ this.Index = index;
 if (at > this.Index) {
   throw new Error(`TokenIndex: 禁止查看 tokenIndex 之后的数据（tokenIndex=${this.Index}，at=${at}）`);
 }
+if (at < 0 || at >= this.Host.Data.length) {
+  throw new Error(`TokenIndex: 下标越界（Data.length=${this.Host.Data.length}，at=${at}）`);
+}
 return this.Host.Data[at];
 ```
 
