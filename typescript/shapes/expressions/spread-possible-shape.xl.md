@@ -10,6 +10,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { BinaryExpressionPossibleShape } from "./binary-expression-possible-shape.xl.md"
 import { CallPossibleShape } from "./call-possible-shape.xl.md"
@@ -23,14 +24,16 @@ import { SuffixAccessPossibleShape } from "./suffix-access-possible-shape.xl.md"
 
 # class SpreadPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -49,9 +52,11 @@ if (!SpreadPossibleShape.ShouldBuild(units, tokenIndex)) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return SpreadPossibleShape.ShouldBuild(units, tokenIndex);
 ```
 
@@ -91,11 +96,13 @@ return new CatalogGuide(
 );
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const dots = units[tokenIndex] as Symbol;
+const tokenIndex = index.Index;
+const dots = index.At(tokenIndex) as Symbol;
 const pos = OperandUtil.PositionOf(units, tokenIndex);
 const shape = new SpreadElementShape(host.Template);
 shape.Pos = pos;
@@ -109,14 +116,16 @@ return this.StampCreated(shape, context);
 
 # class SpreadOperandPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -132,9 +141,11 @@ if (SpreadOperandPossibleShape.ShouldBuild(units, tokenIndex)) {
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return SpreadOperandPossibleShape.ShouldBuild(units, tokenIndex);
 ```
 
@@ -154,11 +165,13 @@ if (!OperandUtil.CanStartExpression(unit)) {
 return ItemUtil.PreviousCode(units, tokenIndex - 1) < 0;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const common = units[tokenIndex] as Common;
+const tokenIndex = index.Index;
+const common = index.At(tokenIndex) as Common;
 const operand = OperandUtil.FromCommon(common, OperandUtil.PositionOf(units, tokenIndex));
 common.Replace(operand);
 return this.StampCreated(operand, context);
@@ -166,14 +179,16 @@ return this.StampCreated(operand, context);
 
 # class SpreadEndPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -186,9 +201,11 @@ if (!(host instanceof SpreadElementShape)) {
 return SpreadEndPossibleShape.ShouldEnd(units, tokenIndex) ? ShapeStates.Accept : ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return SpreadEndPossibleShape.ShouldEnd(units, tokenIndex);
 ```
 
@@ -208,11 +225,13 @@ if (!unit.IsAny([")", ","])) {
 return ItemUtil.PreviousCode(units, tokenIndex - 1) >= 0;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const trigger = units[tokenIndex];
+const tokenIndex = index.Index;
+const trigger = index.At(tokenIndex);
 let startIndex = tokenIndex;
 for (let at = tokenIndex - 1; at >= 0; at--) {
   const item = units[at];
