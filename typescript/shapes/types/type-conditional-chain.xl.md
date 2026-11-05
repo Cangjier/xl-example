@@ -11,6 +11,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
 import { TypeParameterListShape } from "./type-parameter-list-shape.xl.md"
@@ -33,10 +34,12 @@ import { TypeParserApi } from "./type-parser-api.xl.md"
 
 # class TypeAliasChainPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
@@ -65,7 +68,7 @@ if (equals < 0) {
 if (!TypeConditionalScan.Balanced(units, 0, equals)) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit instanceof Symbol && unit.Closed && unit.Is("=>")) {
   return ShapeStates.Reject;
 }
@@ -81,13 +84,15 @@ if (unit instanceof Common && unit.Closed && unit.Is("extends")) {
 return ShapeStates.Uncertain;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Common) || !unit.Closed || !unit.Is("extends")) {
   return false;
 }
@@ -99,10 +104,12 @@ return TypeConditionalScan.CodeCount(units, equals + 1, tokenIndex) > 0
   && TypeConditionalScan.Balanced(units, equals + 1, tokenIndex);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+let tokenIndex = index.Index;
 let equals = TypeConditionalScan.TopLevelEquals(units, tokenIndex);
 if (equals < 0) {
   throw new Error("TypeAliasChainPossibleShape: 条件类型前没有 =");
@@ -186,9 +193,11 @@ return this.StampCreated(conditional, context);
 
 # class TypeConditionalChainPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 if (!(host instanceof ConditionalTypeShape)) {
   return ShapeStates.Reject;
 }
@@ -205,9 +214,11 @@ if (TypeConditionalChainPossibleShape.CanBuild(units, tokenIndex)) {
 return ShapeStates.Uncertain;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return TypeConditionalChainPossibleShape.CanBuild(units, tokenIndex);
 ```
 
@@ -243,12 +254,14 @@ if (TypeConditionalScan.IsOperatorUnit(unit)) {
 return false;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 const conditional = host as ConditionalTypeShape;
 const units = conditional.Data;
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (TypeConditionalScan.IsQualifiedTail(units, tokenIndex)) {
   const qualified = TypeConditionalGrow.GrowQualified(conditional, tokenIndex);
   PossibleShape.StampAll(qualified, context.Index);
@@ -382,27 +395,33 @@ node.Parent = container;
 
 # class TypeConditionalEndPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 if (!(host instanceof ConditionalTypeShape)) {
   return ShapeStates.Reject;
 }
 return TypeAliasEndUtil.IsEndToken(host.Data, tokenIndex, host.Stage) ? ShapeStates.Accept : ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return true;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 const conditional = host as ConditionalTypeShape;
 const units = conditional.Data;
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 const stage = conditional.Stage;
 const start = TypeConditionalScan.RunStart(units, units.length);
 if (stage < 2) {
@@ -456,36 +475,43 @@ return CloseStates.Nothing;
 
 # class TypeArgumentEndPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Reject;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(">")) {
   return ShapeStates.Reject;
 }
 return TypeBalanceUtil.IsBalanced(units, units.length) ? ShapeStates.Accept : ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(">")) {
   return false;
 }
 return TypeBalanceUtil.IsBalanced(units, units.length);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
+const units = host.Data;
 const list = host as TypeArgumentListShape;
 const close = list.Data[list.Data.length - 1];
 TypeConditionalGrow.FinishArgumentList(list, context);
@@ -507,9 +533,11 @@ return unit instanceof Common
   && TypeConditionalScan.IsArgumentStart(units, tokenIndex);
 ```
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 if (!(host instanceof TypeArgumentListShape)) {
   return ShapeStates.Reject;
 }
@@ -520,24 +548,29 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 if (TypeArgumentInferPossibleShape.CanBuild(units, tokenIndex)) {
   return ShapeStates.Accept;
 }
-if (units[tokenIndex] instanceof Symbol && units[tokenIndex].Closed) {
+const unit = index.At(tokenIndex);
+if (unit instanceof Symbol && unit.Closed) {
   return ShapeStates.Reject;
 }
 return TypeConditionalScan.IsArgumentStart(units, tokenIndex) ? ShapeStates.Uncertain : ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return TypeArgumentInferPossibleShape.CanBuild(units, tokenIndex);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 const list = host as TypeArgumentListShape;
 const units = list.Data;
-const unit = units[tokenIndex] as Common;
+const unit = index.At(tokenIndex) as Common;
 const pos = ItemUtil.PositionOf(units, tokenIndex);
 const infer = new InferTypeShape(list.Template);
 infer.Pos = pos;
@@ -547,6 +580,3 @@ units.splice(tokenIndex, 1, infer);
 infer.Parent = list;
 return this.StampCreated(infer, context);
 ```
-
-
-

@@ -9,6 +9,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
@@ -36,10 +37,12 @@ import { TypeKeywordUtil } from "./type-keyword-util.xl.md"
 
 # class TypeAliasPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (start >= units.length) {
   return ShapeStates.Uncertain;
@@ -51,9 +54,11 @@ if (!(head instanceof Common) || head.TempToString() !== "type") {
 return ShapeStates.Uncertain;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (start >= units.length) {
   return false;
@@ -74,10 +79,12 @@ const text = name.TempToString();
 return OperandUtil.IsIdentifier(text) && !OperandUtil.IsKeyword(text);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, catalog.PossibleShapesComputeCache);
 const keywordIndex = start;
 const nameIndex = StatementUtil.NextCode(units, keywordIndex + 1);
@@ -113,9 +120,11 @@ return this.StampCreated(alias, context);
 
 # class TypeAliasBodyPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 if (!(host instanceof TypeAliasDeclarationShape)) {
   return ShapeStates.Reject;
 }
@@ -129,18 +138,22 @@ if (TypeBodyUtil.IsBodyName(units, tokenIndex, cache)) {
 return TypeBodyUtil.HasBodyCode(units, tokenIndex, cache) ? ShapeStates.Reject : ShapeStates.Uncertain;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return TypeBodyUtil.IsBodyName(units, tokenIndex, cache);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 const alias = host as TypeAliasDeclarationShape;
 const units = alias.Data;
-const unit = units[tokenIndex] as Common;
+const unit = index.At(tokenIndex) as Common;
 const pos = ItemUtil.PositionOf(units, tokenIndex);
 const identifier = IdentifierShape.FromCommon(unit, pos);
 const reference = new TypeReferenceShape(alias.Template);
@@ -156,9 +169,11 @@ return this.StampCreated(reference, context);
 
 # class TypeAliasBodyKeywordPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 if (!(host instanceof TypeAliasDeclarationShape)) {
   return ShapeStates.Reject;
 }
@@ -186,9 +201,11 @@ if (!TypeBodyUtil.IsKeywordTypeText(unit.TempToString())) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex !== units.length - 1) {
   return false;
 }
@@ -202,9 +219,11 @@ return unit instanceof Common
   && TypeBodyUtil.IsKeywordTypeText(unit.TempToString());
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 const alias = host as TypeAliasDeclarationShape;
 const units = alias.Data;
 const equals = TypeConditionalScan.TopLevelEquals(units, tokenIndex);
@@ -227,9 +246,11 @@ return this.StampCreated(atom, context);
 
 # class TypeAliasArraySuffixPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 if (!(host instanceof TypeAliasDeclarationShape)) {
   return ShapeStates.Reject;
 }
@@ -260,15 +281,19 @@ if (lastCode >= 0) {
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return TypeBodyUtil.IsPostfixArrayClose(units, tokenIndex, cache);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 const alias = host as TypeAliasDeclarationShape;
 const units = alias.Data;
 const closeIndex = ItemUtil.PreviousCode(units, tokenIndex);
@@ -299,9 +324,11 @@ return this.StampCreated(array, context);
 
 # class TypeAliasOperatorMemberPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 if (!(host instanceof TypeAliasDeclarationShape)) {
   return ShapeStates.Reject;
 }
@@ -331,15 +358,19 @@ if (lastCode >= 0) {
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return TypeBodyUtil.IsOperatorMember(units, tokenIndex, cache);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 const alias = host as TypeAliasDeclarationShape;
 const units = alias.Data;
 const equals = TypeConditionalScan.TopLevelEquals(units, tokenIndex);
