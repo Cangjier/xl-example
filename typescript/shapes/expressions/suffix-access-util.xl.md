@@ -6,8 +6,11 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
+import { ConditionalExpressionShape } from "./conditional-expression-shape.xl.md"
 import { ElementAccessExpressionShape } from "./element-access-expression-shape.xl.md"
+import { ParenthesizedExpressionShape } from "./parenthesized-expression-shape.xl.md"
 import { PropertyAccessExpressionShape } from "./property-access-expression-shape.xl.md"
+import { UnaryExpressionShape } from "./unary-expression-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -19,6 +22,18 @@ import { PropertyAccessExpressionShape } from "./property-access-expression-shap
 ```ts
 if (!unit.Closed) {
   return false;
+}
+if (unit.constructor.name === "CallExpressionShape") {
+  return true;
+}
+if (unit instanceof ConditionalExpressionShape) {
+  return true;
+}
+if (unit instanceof UnaryExpressionShape) {
+  return true;
+}
+if (unit instanceof ParenthesizedExpressionShape) {
+  return true;
 }
 return unit instanceof IdentifierShape
   || unit instanceof NumericLiteralShape

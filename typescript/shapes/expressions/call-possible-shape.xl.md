@@ -13,6 +13,7 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { CallExpressionShape } from "./call-expression-shape.xl.md"
 import { ElementAccessExpressionShape } from "./element-access-expression-shape.xl.md"
+import { ParenthesizedExpressionShape } from "./parenthesized-expression-shape.xl.md"
 import { PropertyAccessExpressionShape } from "./property-access-expression-shape.xl.md"
 ```
 
@@ -80,6 +81,9 @@ return ItemUtil.PreviousCode(units, tokenIndex - 1);
 ```ts
 if (!unit.Closed) {
   return false;
+}
+if (unit instanceof ParenthesizedExpressionShape) {
+  return true;
 }
 return unit instanceof IdentifierShape
   || unit instanceof PropertyAccessExpressionShape

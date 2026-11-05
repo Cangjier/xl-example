@@ -10,6 +10,7 @@ import { ArgumentPossibleShape } from "./argument-possible-shape.xl.md"
 import { BinaryExpressionPossibleShape } from "./binary-expression-possible-shape.xl.md"
 import { CallExpressionEndPossibleShape } from "./call-expression-end-possible-shape.xl.md"
 import { CallPossibleShape } from "./call-possible-shape.xl.md"
+import { SpreadPossibleShape } from "./spread-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "./suffix-access-possible-shape.xl.md"
 ```
 
@@ -24,7 +25,7 @@ import { SuffixAccessPossibleShape } from "./suffix-access-possible-shape.xl.md"
 ```ts
 super(template);
 this.CatalogGuide = new CatalogGuide(
-  [new ArgumentPossibleShape(), new BinaryExpressionPossibleShape(), new CallPossibleShape(), new SuffixAccessPossibleShape()],
+  [new ArgumentPossibleShape(), new BinaryExpressionPossibleShape(), new CallPossibleShape(), new SpreadPossibleShape(), new SuffixAccessPossibleShape()],
   new CallExpressionEndPossibleShape(),
 );
 ```

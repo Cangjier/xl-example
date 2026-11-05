@@ -65,7 +65,7 @@ if (!(previous instanceof Symbol) || !previous.Is("=")) {
   return false;
 }
 const text = unit.TempToString();
-return text !== "typeof" && text !== "void" && text !== "delete";
+return text !== "typeof" && text !== "void" && text !== "delete" && text !== "new";
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
