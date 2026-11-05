@@ -9,6 +9,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
@@ -192,9 +193,11 @@ return CloseStates.Nothing;
 
 # class TypeParameterListOpenPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= host.Data.length) {
   return ShapeStates.Uncertain;
 }
@@ -204,17 +207,21 @@ if (TypeParameterListShape.IsHeaderOpen(host.Data, tokenIndex)) {
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return TypeParameterListShape.IsHeaderOpen(units, tokenIndex);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const open = units[tokenIndex] as Symbol;
+const tokenIndex = index.Index;
+const open = index.At(tokenIndex) as Symbol;
 const list = new TypeParameterListShape(host.Template);
 list.Pos = ItemUtil.PositionOf(units, tokenIndex);
 list.SignIn(open.SourceRange.Start);
@@ -230,10 +237,12 @@ return this.StampCreated(list, context);
 
 # class TypeParameterEndPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Reject;
 }
@@ -246,22 +255,26 @@ if (TypeParameterListShape.IsParameterSeparator(units, tokenIndex)) {
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return TypeParameterListShape.IsParameterClose(units, tokenIndex)
   || TypeParameterListShape.IsParameterSeparator(units, tokenIndex);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 const parameter = host as TypeParameterShape;
 const list = parameter.Parent;
 if (!(list instanceof TypeParameterListShape)) {
   throw new Error("TypeParameterEndPossibleShape: 参数不在类型参数表里");
 }
-const unit = host.Data[tokenIndex];
+const unit = index.At(tokenIndex);
 list.FinishParameter(context, parameter, tokenIndex);
 return unit;
 ```

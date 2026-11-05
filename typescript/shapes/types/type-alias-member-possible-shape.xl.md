@@ -9,6 +9,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
@@ -26,9 +27,11 @@ import { TypeShape } from "./type-shape.xl.md"
 
 # class TypeAliasMemberPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 if (!(host instanceof TypeAliasDeclarationShape)) {
   return ShapeStates.Reject;
 }
@@ -43,7 +46,7 @@ const equals = TypeConditionalScan.TopLevelEquals(units, tokenIndex);
 if (equals < 0) {
   return ShapeStates.Uncertain;
 }
-const member = units[tokenIndex];
+const member = index.At(tokenIndex);
 if (member instanceof Symbol && member.TempToString() === ".") {
   const leftIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
   if (leftIndex > equals && units[leftIndex] instanceof TypeShape) {
@@ -76,9 +79,11 @@ if (baseIndex <= equals) {
 return units[baseIndex] instanceof TypeShape ? ShapeStates.Accept : ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
@@ -86,7 +91,7 @@ const equals = TypeConditionalScan.TopLevelEquals(units, tokenIndex);
 if (equals < 0) {
   return false;
 }
-const member = units[tokenIndex];
+const member = index.At(tokenIndex);
 if (!(member instanceof Common) || !member.Closed) {
   return false;
 }
@@ -101,12 +106,14 @@ const baseIndex = ItemUtil.PreviousCode(units, dotIndex - 1);
 return baseIndex > equals && units[baseIndex] instanceof TypeShape;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 const alias = host as TypeAliasDeclarationShape;
-const units = alias.Data;
-const member = units[tokenIndex] as Common;
+const member = index.At(tokenIndex) as Common;
 const dotIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
 const baseIndex = ItemUtil.PreviousCode(units, dotIndex - 1);
 const base = units[baseIndex] as TypeShape;
@@ -132,9 +139,11 @@ return this.StampCreated(base, context);
 
 # class TypeAliasIndexPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 if (!(host instanceof TypeAliasDeclarationShape)) {
   return ShapeStates.Reject;
 }
@@ -149,7 +158,7 @@ const equals = TypeConditionalScan.TopLevelEquals(units, tokenIndex);
 if (equals < 0) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit instanceof Symbol && unit.TempToString() === "[") {
   const leftIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
   if (leftIndex > equals && units[leftIndex] instanceof TypeShape) {
@@ -173,13 +182,15 @@ return TypeAliasIndexPossibleShape.OpenDepth(units, equals, tokenIndex) > 0
   : ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const close = units[tokenIndex];
+const close = index.At(tokenIndex);
 if (!(close instanceof Symbol) || !close.Closed || !close.Is("]")) {
   return false;
 }
@@ -239,12 +250,14 @@ for (let at = closeIndex - 1; at > from; at--) {
 return -1;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 const alias = host as TypeAliasDeclarationShape;
-const units = alias.Data;
-const close = units[tokenIndex] as Symbol;
+const close = index.At(tokenIndex) as Symbol;
 const equals = TypeConditionalScan.TopLevelEquals(units, tokenIndex);
 const openIndex = TypeAliasIndexPossibleShape.MatchOpen(units, tokenIndex, equals);
 if (openIndex < 0) {
