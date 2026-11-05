@@ -7,6 +7,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ConditionCloseDispatch } from "../conditions/condition-close-dispatch.xl.md"
 import { ForClauseShape } from "./for-clause-shape.xl.md"
@@ -21,14 +22,16 @@ import { ForSemicolonPossibleShape } from "./for-head-opening.xl.md"
 # class ForClauseEndPossibleShape extends PossibleShape
 
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Reject;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Symbol) || !unit.Closed) {
   return ShapeStates.Reject;
 }
@@ -38,21 +41,25 @@ if (unit.Is(";") || unit.Is(")")) {
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 return unit instanceof Symbol && unit.Closed && (unit.Is(";") || unit.Is(")"));
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 const clause = host as ForClauseShape;
-const terminator = clause.Data[tokenIndex] as Symbol;
+const terminator = index.At(tokenIndex) as Symbol;
 const code:Array<Token> = [];
 for (let at = 0; at < tokenIndex; at++) {
   const item = clause.Data[at];
