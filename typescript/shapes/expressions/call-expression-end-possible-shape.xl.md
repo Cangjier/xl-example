@@ -8,6 +8,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { CallExpressionShape } from "./call-expression-shape.xl.md"
 ```
 
@@ -15,18 +16,23 @@ import { CallExpressionShape } from "./call-expression-shape.xl.md"
 
 # class CallExpressionEndPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 if (!CallExpressionEndPossibleShape.ShouldEnd(host, tokenIndex)) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return CallExpressionEndPossibleShape.ShouldClose(units, tokenIndex);
 ```
 
@@ -55,14 +61,16 @@ if (!(unit instanceof Symbol) || !unit.Closed) {
 return unit.Is(")");
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 if (!(host instanceof CallExpressionShape)) {
   throw new Error("CallExpressionEndPossibleShape: 宿主不是调用表达式");
 }
-const units = host.Data;
-const close = units[tokenIndex] as Symbol;
+const close = index.At(tokenIndex) as Symbol;
 units.splice(tokenIndex, 1);
 host.AwaitingClose = false;
 host.SourceRange.End = close.SourceRange.End;

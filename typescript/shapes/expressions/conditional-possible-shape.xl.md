@@ -8,6 +8,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { BinaryExpressionPossibleShape } from "./binary-expression-possible-shape.xl.md"
 import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
@@ -27,14 +28,16 @@ import { SuffixAccessPossibleShape } from "./suffix-access-possible-shape.xl.md"
 
 # class ConditionalPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -53,9 +56,11 @@ if (!ConditionalPossibleShape.ShouldBuild(units, tokenIndex)) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return ConditionalPossibleShape.ShouldBuild(units, tokenIndex);
 ```
 
@@ -94,15 +99,17 @@ return new CatalogGuide(
 );
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 const conditionIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
 if (conditionIndex < 0) {
   throw new Error("ConditionalPossibleShape: 缺条件操作数");
 }
-const question = units[tokenIndex] as Symbol;
+const question = index.At(tokenIndex) as Symbol;
 const questionToken = QuestionTokenShape.FromUnit(question, ExpressionUtil.OperatorPosition(units, tokenIndex));
 if (host instanceof BinaryExpressionShape && host.Precedence > 2) {
   const container = host.Parent;

@@ -10,6 +10,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { BinaryOperatorTable } from "./binary-operator-table.xl.md"
 import { CallPossibleShape } from "./call-possible-shape.xl.md"
 import { ColonTokenShape } from "./unary-token-shapes.xl.md"
@@ -24,14 +25,16 @@ import { SuffixAccessPossibleShape } from "./suffix-access-possible-shape.xl.md"
 
 # class ConditionalEndPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -44,9 +47,11 @@ if (host instanceof ConditionalExpressionShape && host.AwaitingColon) {
 return ConditionalEndPossibleShape.ShouldEnd(units, tokenIndex) ? ShapeStates.Accept : ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return ConditionalEndPossibleShape.ShouldEnd(units, tokenIndex);
 ```
 
@@ -97,12 +102,14 @@ if (unit instanceof Common) {
 return false;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (host instanceof ConditionalExpressionShape && host.AwaitingColon) {
-  const symbol = units[tokenIndex] as Symbol;
+  const symbol = index.At(tokenIndex) as Symbol;
   const colonToken = ColonTokenShape.FromSymbol(symbol, ExpressionUtil.OperatorPosition(units, tokenIndex));
   units.splice(tokenIndex, 1, colonToken);
   colonToken.Parent = host;
@@ -111,7 +118,7 @@ if (host instanceof ConditionalExpressionShape && host.AwaitingColon) {
   host.AwaitingOperand = true;
   return this.StampCreated(colonToken, context);
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 let startIndex = tokenIndex;
 for (let at = tokenIndex - 1; at >= 0; at--) {
   const item = units[at];

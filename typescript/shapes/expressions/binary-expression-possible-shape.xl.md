@@ -9,6 +9,7 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
@@ -32,14 +33,16 @@ import { VariableDeclarationShape } from "../declarations/variable-declaration-s
 
 # class BinaryExpressionPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Symbol)) {
   if (unit instanceof Common) {
     if (host instanceof BinaryExpressionShape) {
@@ -74,9 +77,11 @@ if (BinaryExpressionPossibleShape.ShouldBuild(units, tokenIndex)) {
 return ShapeStates.Uncertain;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return BinaryExpressionPossibleShape.ShouldBuild(units, tokenIndex);
 ```
 
@@ -160,11 +165,13 @@ return new CatalogGuide(
 );
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const operator = units[tokenIndex] as Symbol;
+const tokenIndex = index.Index;
+const operator = index.At(tokenIndex) as Symbol;
 const info = BinaryOperatorTable.Find(operator.TempToString());
 if (info === null) {
   throw new Error("BinaryExpressionPossibleShape: 不支持的运算符 " + operator.TempToString());
