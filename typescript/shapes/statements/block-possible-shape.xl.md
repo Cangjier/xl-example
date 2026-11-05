@@ -23,7 +23,7 @@ import { StatementGuide } from "./statement-guide.xl.md"
 
 ```ts
 const units = host.Data;
-const start = StatementUtil.StartIndex(units);
+const start = StatementUtil.StartIndex(units, cache);
 if (start >= units.length || tokenIndex < start || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
@@ -43,7 +43,7 @@ return ShapeStates.Accept;
 if (tokenIndex !== units.length - 1) {
   return false;
 }
-const start = StatementUtil.StartIndex(units);
+const start = StatementUtil.StartIndex(units, cache);
 if (tokenIndex !== start) {
   return false;
 }

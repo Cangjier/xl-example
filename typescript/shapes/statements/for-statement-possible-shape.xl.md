@@ -23,7 +23,7 @@ import { ForOpenPossibleShape } from "./for-head-opening.xl.md"
 
 ```ts
 const units = host.Data;
-const start = StatementUtil.StartIndex(units);
+const start = StatementUtil.StartIndex(units, cache);
 if (tokenIndex < start) {
   return ShapeStates.Uncertain;
 }
@@ -43,7 +43,7 @@ return ShapeStates.Accept;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-const start = StatementUtil.StartIndex(units);
+const start = StatementUtil.StartIndex(units, cache);
 if (tokenIndex !== start || tokenIndex !== units.length - 1) {
   return false;
 }

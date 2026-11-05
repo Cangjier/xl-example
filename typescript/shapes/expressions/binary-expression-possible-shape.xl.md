@@ -114,17 +114,15 @@ return -1;
 
 ```ts
 let pos = units[tokenIndex].SourceRange.Start;
-let moved = true;
-while (moved) {
-  moved = false;
-  for (let at = 0; at < units.length; at++) {
-    const unit = units[at];
-    if (unit.IsTriviaToken && unit.SourceRange.End === pos) {
-      pos = unit.SourceRange.Start;
-      moved = true;
-      break;
-    }
+for (let at = tokenIndex - 1; at >= 0; at--) {
+  const unit = units[at];
+  if (!unit.IsTriviaToken) {
+    continue;
   }
+  if (unit.SourceRange.End !== pos) {
+    continue;
+  }
+  pos = unit.SourceRange.Start;
 }
 return pos;
 ```

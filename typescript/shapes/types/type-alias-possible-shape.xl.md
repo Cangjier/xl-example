@@ -38,7 +38,7 @@ import { TypeKeywordUtil } from "./type-keyword-util.xl.md"
 
 ```ts
 const units = host.Data;
-const start = StatementUtil.StartIndex(units);
+const start = StatementUtil.StartIndex(units, cache);
 if (start >= units.length) {
   return ShapeStates.Uncertain;
 }
@@ -52,7 +52,7 @@ return ShapeStates.Uncertain;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-const start = StatementUtil.StartIndex(units);
+const start = StatementUtil.StartIndex(units, cache);
 if (start >= units.length) {
   return false;
 }
@@ -76,7 +76,7 @@ return OperandUtil.IsIdentifier(text) && !OperandUtil.IsKeyword(text);
 
 ```ts
 const units = host.Data;
-const start = StatementUtil.StartIndex(units);
+const start = StatementUtil.StartIndex(units, catalog.PossibleShapesComputeCache);
 const keywordIndex = start;
 const nameIndex = StatementUtil.NextCode(units, keywordIndex + 1);
 if (keywordIndex < 0 || nameIndex < 0) {

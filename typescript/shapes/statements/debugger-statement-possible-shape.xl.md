@@ -22,7 +22,7 @@ import { DebuggerStatementShape } from "./debugger-statement-shape.xl.md"
 
 ```ts
 const units = host.Data;
-const start = StatementUtil.StartIndex(units);
+const start = StatementUtil.StartIndex(units, cache);
 if (start >= units.length || tokenIndex < start || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
@@ -48,7 +48,7 @@ return ShapeStates.Reject;
 if (tokenIndex !== units.length - 1) {
   return false;
 }
-const start = StatementUtil.StartIndex(units);
+const start = StatementUtil.StartIndex(units, cache);
 return DebuggerStatementPossibleShape.IsPattern(units, start, tokenIndex);
 ```
 
@@ -79,7 +79,7 @@ return head instanceof Common && head.Closed && head.TempToString() === "debugge
 
 ```ts
 const units = host.Data;
-const start = StatementUtil.StartIndex(units);
+const start = StatementUtil.StartIndex(units, catalog.PossibleShapesComputeCache);
 const semicolon = units[tokenIndex] as Symbol;
 const keywordIndex = StatementUtil.NextCode(units, start);
 const keyword = units[keywordIndex] as Common;
