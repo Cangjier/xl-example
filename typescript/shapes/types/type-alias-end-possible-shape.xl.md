@@ -9,6 +9,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { TypeBalanceUtil } from "./type-balance-util.xl.md"
@@ -19,14 +20,16 @@ import { TypeParserApi } from "./type-parser-api.xl.md"
 
 # class TypeAliasEndPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Reject;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
   return TypeBalanceUtil.IsBalanced(units, tokenIndex) ? ShapeStates.Accept : ShapeStates.Reject;
 }
@@ -43,13 +46,15 @@ if (unit instanceof Common && unit.Closed && TypeAliasEndPossibleShape.IsStateme
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
   return TypeBalanceUtil.IsBalanced(units, tokenIndex);
 }
@@ -63,12 +68,14 @@ if (unit instanceof Common && unit.Closed && TypeAliasEndPossibleShape.IsStateme
 return false;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 const alias = host as TypeAliasDeclarationShape;
-const units = alias.Data;
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 const previous = ItemUtil.PreviousCode(units, tokenIndex - 1);
 let end = unit.SourceRange.Start;
 let tail:Array<Token> = [];
