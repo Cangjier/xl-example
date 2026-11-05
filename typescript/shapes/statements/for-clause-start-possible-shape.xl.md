@@ -15,6 +15,7 @@ import { ConditionOperatorPossibleShape } from "../conditions/condition-operator
 import { ForClauseShape } from "./for-clause-shape.xl.md"
 import { ForClauseEndPossibleShape } from "./for-clause-end-possible-shape.xl.md"
 import { ForHeadShape } from "./for-head-shape.xl.md"
+import { ForOfInKeywordPossibleShape } from "./for-of-in-keyword-possible-shape.xl.md"
 import { PostfixPossibleShape } from "./postfix-possible-shape.xl.md"
 ```
 
@@ -50,11 +51,6 @@ if (!unit.Closed) {
 if (tokenIndex !== start || !OperandUtil.CanStartExpression(unit)) {
   return ShapeStates.Reject;
 }
-if (host.Segment === 0 && host.Init === null) {
-  if (ForHeadShape.IsWordAhead(unit.SourceRange.End, "of") || ForHeadShape.IsWordAhead(unit.SourceRange.End, "in")) {
-    return ShapeStates.Reject;
-  }
-}
 return ShapeStates.Accept;
 ```
 
@@ -86,7 +82,7 @@ clause.Add(operand);
 clause.Parent = head;
 clause.SignOut(operand.SourceRange.End);
 clause.CatalogGuide = new CatalogGuide(
-  [new ConditionOperatorPossibleShape(), new PostfixPossibleShape()],
+  [new ConditionOperatorPossibleShape(), new PostfixPossibleShape(), new ForOfInKeywordPossibleShape()],
   new ForClauseEndPossibleShape(),
 );
 head.MountedUnit = clause;
