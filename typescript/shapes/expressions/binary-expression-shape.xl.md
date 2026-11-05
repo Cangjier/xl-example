@@ -37,18 +37,7 @@ return shape;
 if (!unit.IsTriviaToken) {
   return false;
 }
-const range = unit.SourceRange;
-if (range.Start < 0 || range.End < 0) {
-  return false;
-}
-let document = range.Document;
-if (document === null) {
-  document = SourceRange.CurrentDocument;
-}
-if (document === null) {
-  return false;
-}
-const text = document.GetRaw(range.Start, range.End);
+const text = unit.AstText();
 return text.indexOf("\n") >= 0
   || text.indexOf("\r") >= 0
   || text.indexOf("\u2028") >= 0
