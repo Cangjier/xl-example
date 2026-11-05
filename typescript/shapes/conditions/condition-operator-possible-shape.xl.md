@@ -14,6 +14,8 @@ import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-
 import { BinaryExpressionEndPossibleShape } from "../expressions/binary-expression-end-possible-shape.xl.md"
 import { BinaryOperatorTable } from "../expressions/binary-operator-table.xl.md"
 import { RightOperandPossibleShape } from "../expressions/right-operand-possible-shape.xl.md"
+import { ConditionalPossibleShape } from "../expressions/conditional-possible-shape.xl.md"
+import { PostfixUnaryPossibleShape } from "../expressions/postfix-unary-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "../expressions/suffix-access-possible-shape.xl.md"
 import { CallPossibleShape } from "../expressions/call-possible-shape.xl.md"
 ```
@@ -116,7 +118,7 @@ for (const item of between) {
   binary.Data.splice(insertAt, 0, item);
   insertAt++;
 }
-binary.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
+binary.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new ConditionalPossibleShape(), new PostfixUnaryPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
 host.MountedUnit = binary;
 return this.StampCreated(binary, context);
 ```
