@@ -99,12 +99,6 @@ if (tokenIndex !== start) {
 if (unit.IsAny(["let", "const", "var"])) {
   return ShapeStates.Accept;
 }
-if (OperandUtil.CanStartExpression(unit)) {
-  if (!ForHeadShape.IsWordAhead(unit.SourceRange.End, "of") && !ForHeadShape.IsWordAhead(unit.SourceRange.End, "in")) {
-    return ShapeStates.Reject;
-  }
-  return ShapeStates.Accept;
-}
 return ShapeStates.Reject;
 ```
 
@@ -122,27 +116,17 @@ const start = StatementUtil.StartIndex(units, cache);
 if (tokenIndex !== start) {
   return false;
 }
-return unit.IsAny(["let", "const", "var"]) || OperandUtil.CanStartExpression(unit);
+return unit.IsAny(["let", "const", "var"]);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
 const head = host as ForHeadShape;
-const units = head.Data;
-const common = units[tokenIndex] as Common;
-if (common.IsAny(["let", "const", "var"])) {
-  head.CatalogGuide = new CatalogGuide([new ForDeclarationNamePossibleShape()], null);
-  head.MountedUnit = null;
-  return this.StampCreated(common, context);
-}
-const operand = OperandUtil.FromCommon(common, ItemUtil.PositionOf(units, tokenIndex));
-units.splice(tokenIndex, 1, operand);
-operand.Parent = head;
-head.Init = operand;
-head.CatalogGuide = new CatalogGuide([new ForOfInKeywordPossibleShape()], null);
+const common = head.Data[tokenIndex] as Common;
+head.CatalogGuide = new CatalogGuide([new ForDeclarationNamePossibleShape()], null);
 head.MountedUnit = null;
-return this.StampCreated(operand, context);
+return this.StampCreated(common, context);
 ```
 
 # class ForDeclarationNamePossibleShape extends PossibleShape
