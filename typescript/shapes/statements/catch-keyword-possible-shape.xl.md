@@ -12,7 +12,6 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { CatchClauseShape } from "./catch-clause-shape.xl.md"
 import { CatchOpenPossibleShape } from "./catch-open-possible-shape.xl.md"
 import { CatchBlockPossibleShape } from "./catch-block-possible-shape.xl.md"
-import { TryStatementEndPossibleShape } from "./try-statement-end-possible-shape.xl.md"
 import { TryStatementShape } from "./try-statement-shape.xl.md"
 ```
 
@@ -20,16 +19,6 @@ import { TryStatementShape } from "./try-statement-shape.xl.md"
 
 # class CatchKeywordPossibleShape extends PossibleShape
 
-
-## static method Arm:(statement:TryStatementShape)=>void
-
-```ts
-statement.CatalogGuide = new CatalogGuide(
-  [new CatchKeywordPossibleShape()],
-  new TryStatementEndPossibleShape(),
-);
-statement.MountedUnit = null;
-```
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
