@@ -8,6 +8,7 @@ import { ReloadMessage } from "../../../core/syntax/messages/reload-message.xl.m
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { TryStatementShape } from "./try-statement-shape.xl.md"
 ```
@@ -17,17 +18,19 @@ import { TryStatementShape } from "./try-statement-shape.xl.md"
 # class TryStatementEndPossibleShape extends PossibleShape
 
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 if (!(host instanceof TryStatementShape)) {
   return ShapeStates.Reject;
 }
-const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -43,28 +46,32 @@ if (unit instanceof Common && unit.IsAny(["catch", "finally"])) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length || tokenIndex !== units.length - 1) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken || !unit.Closed) {
   return false;
 }
 return !(unit instanceof Common && unit.IsAny(["catch", "finally"]));
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const tokenIndex = index.Index;
 const statement = host as TryStatementShape;
 const units = statement.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   throw new Error("TryStatementEndPossibleShape: 下标越界");
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 let startIndex = tokenIndex;
 for (let at = tokenIndex - 1; at >= 0; at--) {
   if (!units[at].IsTriviaToken) {
