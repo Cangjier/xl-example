@@ -32,6 +32,9 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
+if (unit.IsTriviaToken) {
+  return ShapeStates.Uncertain;
+}
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(")")) {
   return ShapeStates.Reject;
 }
