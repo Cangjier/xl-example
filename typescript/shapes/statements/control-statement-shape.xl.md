@@ -82,7 +82,7 @@ return !/[$_\p{ID_Continue}]/u.test(document.GetValue(at + length));
 
 ```ts
 if (this.Kind === "if") {
-  return ControlStatementShape.IsElseAhead(context, end);
+  return true;
 }
 if (this.Kind === "do") {
   return true;

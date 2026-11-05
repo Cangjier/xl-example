@@ -11,6 +11,7 @@ import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ControlStatementShape } from "./control-statement-shape.xl.md"
 import { ControlBodyPossibleShape } from "./control-body-possible-shape.xl.md"
+import { ControlElseEndPossibleShape } from "./control-else-end-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -20,7 +21,7 @@ import { ControlBodyPossibleShape } from "./control-body-possible-shape.xl.md"
 ## static method Arm:(control:ControlStatementShape)=>void
 
 ```ts
-control.CatalogGuide = new CatalogGuide([new ControlElsePossibleShape()], null);
+control.CatalogGuide = new CatalogGuide([new ControlElsePossibleShape()], new ControlElseEndPossibleShape());
 ```
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
