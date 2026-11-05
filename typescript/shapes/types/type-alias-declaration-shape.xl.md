@@ -12,8 +12,6 @@ import { TypeReferenceShape } from "./type-node-shapes.xl.md"
 import { KeywordTypeShape } from "./keyword-type-shapes.xl.md"
 import { TypeParameterListShape } from "./type-parameter-list-shape.xl.md"
 import { TypeConditionalGrow } from "./type-conditional-grow-util.xl.md"
-import { TypeConditionalScan } from "./type-conditional-scan-util.xl.md"
-import { TypeAliasGrow } from "./type-alias-grow-util.xl.md"
 import { TypeParserApi } from "./type-parser-api.xl.md"
 ```
 
@@ -25,7 +23,6 @@ import { TypeParserApi } from "./type-parser-api.xl.md"
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
 ```ts
-TypeAliasGrow.Fold(this);
 if (this.HasBuiltType()) {
   for (const item of this.Data) {
     if (item instanceof ConditionalTypeShape) {
@@ -67,16 +64,15 @@ for (const item of node.Data) {
 }
 ```
 
-## method HasBuiltType:()=>bool
+## private method HasBuiltType:()=>bool
 
 ```ts
-const equals = TypeConditionalScan.TopLevelEquals(this.Data, this.Data.length);
-const from = equals < 0 ? 0 : equals + 1;
-for (let at = from; at < this.Data.length; at++) {
-  const item = this.Data[at];
+for (const item of this.Data) {
   if (item instanceof TypeShape
       && !(item instanceof TypeParameterShape)
-      && !(item instanceof TypeParameterListShape)) {
+      && !(item instanceof TypeParameterListShape)
+      && !(item instanceof TypeReferenceShape)
+      && !(item instanceof KeywordTypeShape)) {
     return true;
   }
 }

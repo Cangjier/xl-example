@@ -79,13 +79,9 @@ if (unit instanceof Symbol && unit.Is(";")) {
   end = previous >= 0 ? units[previous].SourceRange.End : unit.SourceRange.Start;
   tail = units.splice(previous >= 0 ? previous + 1 : tokenIndex);
 }
-if (alias.HasBuiltType()) {
-  alias.TryToClose(context);
-} else {
-  const parsed = TypeParserApi.ParseAlias(units, units.length, alias.Template);
-  TypeAliasDeclarationShape.Apply(alias, parsed, end);
-  alias.Closed = true;
-}
+const parsed = TypeParserApi.ParseAlias(units, units.length, alias.Template);
+TypeAliasDeclarationShape.Apply(alias, parsed, end);
+alias.Closed = true;
 const parent = alias.Parent;
 alias.Quit();
 if (parent !== null && tail.length > 0) {
