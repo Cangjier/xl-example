@@ -9,6 +9,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { MinusTokenShape } from "../punctuation/binary-operator-token-shapes.xl.md"
 import { PlusTokenShape } from "../punctuation/plus-token-shape.xl.md"
@@ -27,14 +28,16 @@ import { UnaryExpressionShape } from "./unary-expression-shape.xl.md"
 
 # class PrefixUnaryPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -53,9 +56,11 @@ if (!PrefixUnaryPossibleShape.ShouldBuild(units, tokenIndex)) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 return PrefixUnaryPossibleShape.ShouldBuild(units, tokenIndex);
 ```
 
@@ -118,11 +123,13 @@ if (unit instanceof Common) {
 throw new Error("PrefixUnaryPossibleShape: 不支持的前缀运算符");
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const unit = units[tokenIndex];
+const tokenIndex = index.Index;
+const unit = index.At(tokenIndex);
 const pos = ExpressionUtil.OperatorPosition(units, tokenIndex);
 const operator = PrefixUnaryPossibleShape.CreateOperator(unit, pos);
 let shape:UnaryExpressionShape;
