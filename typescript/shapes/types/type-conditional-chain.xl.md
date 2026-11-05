@@ -218,7 +218,7 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
 const unit = units[tokenIndex];
-const start = TypeConditionalScan.RunStart(units);
+const start = TypeConditionalScan.RunStart(units, units.length);
 if (TypeConditionalScan.CanOpenTypeReference(units, tokenIndex)) {
   return true;
 }
@@ -238,7 +238,7 @@ if (TypeConditionalScan.IsCloserUnit(unit)) {
 if (TypeConditionalScan.IsOperatorUnit(unit)) {
   return TypeConditionalScan.Balanced(units, start, tokenIndex)
     && (TypeConditionalScan.CodeCount(units, start, tokenIndex) > 0
-      || TypeConditionalScan.LastTypeIndex(units) >= 0);
+      || TypeConditionalScan.LastTypeIndex(units, units.length) >= 0);
 }
 return false;
 ```
@@ -266,7 +266,7 @@ if (TypeConditionalScan.IsOperatorUnit(unit)) {
   return this.StampCreated(conditional, context);
 }
 if (unit instanceof Symbol && unit.Closed && unit.Is("]")) {
-  const start = TypeConditionalScan.RunStart(units);
+  const start = TypeConditionalScan.RunStart(units, units.length);
   const first = TypeConditionalScan.FirstCodeIndex(units, start, tokenIndex + 1);
   const target = TypeConditionalGrow.Target(conditional);
   if (first >= 0
@@ -289,7 +289,7 @@ return this.StampCreated(conditional, context);
 ```ts
 const units = conditional.Data;
 const target = TypeConditionalGrow.Target(conditional);
-const atNode = TypeConditionalScan.LastTypeIndex(target.Data);
+const atNode = TypeConditionalScan.LastTypeIndex(target.Data, target.Data.length);
 if (atNode < 0) {
   throw new Error("TypeConditionalChainPossibleShape: 后缀类型没有左操作数");
 }
@@ -329,7 +329,7 @@ units.splice(start, closeIndex + 1 - start);
 
 ```ts
 const units = conditional.Data;
-const start = TypeConditionalScan.RunStart(units);
+const start = TypeConditionalScan.RunStart(units, units.length);
 const kind = (units[tokenIndex] as Symbol).Is("|") ? 1 : 2;
 TypeConditionalGrow.ParseRun(conditional, tokenIndex);
 units.splice(start, 1);
@@ -355,7 +355,7 @@ if (target !== conditional) {
   if (target instanceof IntersectionTypeShape) {
     return;
   }
-  const member = TypeConditionalScan.LastTypeShape(target.Data);
+  const member = TypeConditionalScan.LastTypeShape(target.Data, target.Data.length);
   if (member === null) {
     throw new Error("TypeConditionalChainPossibleShape: 联合类型没有成员");
   }
@@ -366,7 +366,7 @@ if (target !== conditional) {
   nested.Parent = target;
   return;
 }
-const left = TypeConditionalScan.LastTypeShape(conditional.Data);
+const left = TypeConditionalScan.LastTypeShape(conditional.Data, conditional.Data.length);
 if (left === null) {
   throw new Error("TypeConditionalChainPossibleShape: 运算符左侧没有类型");
 }
@@ -404,7 +404,7 @@ const conditional = host as ConditionalTypeShape;
 const units = conditional.Data;
 const unit = units[tokenIndex];
 const stage = conditional.Stage;
-const start = TypeConditionalScan.RunStart(units);
+const start = TypeConditionalScan.RunStart(units, units.length);
 if (stage < 2) {
   TypeConditionalGrow.ParseRun(conditional, tokenIndex);
   TypeConditionalGrow.CloseOperators(conditional, context);

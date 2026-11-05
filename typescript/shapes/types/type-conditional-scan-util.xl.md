@@ -17,10 +17,11 @@ import { TypeReferenceShape } from "./type-node-shapes.xl.md"
 
 # class TypeConditionalScan
 
-## static method LastTypeIndex:(units:Array<Token>)=>int
+## static method LastTypeIndex:(units:Array<Token>, limit:int)=>int
 
 ```ts
-for (let at = units.length - 1; at >= 0; at--) {
+const end = Math.min(units.length, limit);
+for (let at = end - 1; at >= 0; at--) {
   if (units[at] instanceof TypeShape) {
     return at;
   }
@@ -29,10 +30,10 @@ return -1;
 ```
 
 
-## static method RunStart:(units:Array<Token>)=>int
+## static method RunStart:(units:Array<Token>, limit:int)=>int
 
 ```ts
-return TypeConditionalScan.LastTypeIndex(units) + 1;
+return TypeConditionalScan.LastTypeIndex(units, limit) + 1;
 ```
 
 
@@ -295,7 +296,7 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 if (!TypeConditionalScan.IsNameUnit(units[tokenIndex])) {
   return false;
 }
-const start = TypeConditionalScan.RunStart(units);
+const start = TypeConditionalScan.RunStart(units, tokenIndex + 1);
 return TypeConditionalScan.CodeCount(units, start, tokenIndex + 1) === 1;
 ```
 
@@ -309,7 +310,7 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 if (!TypeConditionalScan.IsNameUnit(units[tokenIndex])) {
   return false;
 }
-const start = TypeConditionalScan.RunStart(units);
+const start = TypeConditionalScan.RunStart(units, tokenIndex + 1);
 if (TypeConditionalScan.CodeCount(units, start, tokenIndex + 1) !== 2) {
   return false;
 }
@@ -318,7 +319,7 @@ if (!(units[dot] instanceof Symbol) || !units[dot].Closed || !units[dot].Is(".")
   return false;
 }
 const left = ItemUtil.PreviousCode(units, dot - 1);
-return left === TypeConditionalScan.LastTypeIndex(units) && units[left] instanceof TypeReferenceShape;
+return left === TypeConditionalScan.LastTypeIndex(units, tokenIndex + 1) && units[left] instanceof TypeReferenceShape;
 ```
 
 
@@ -332,11 +333,11 @@ const unit = units[tokenIndex];
 if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is("<")) {
   return false;
 }
-const start = TypeConditionalScan.RunStart(units);
+const start = TypeConditionalScan.RunStart(units, tokenIndex + 1);
 if (TypeConditionalScan.CodeCount(units, start, tokenIndex) !== 0) {
   return false;
 }
-return TypeConditionalScan.LastTypeShape(units) instanceof TypeReferenceShape;
+return TypeConditionalScan.LastTypeShape(units, tokenIndex + 1) instanceof TypeReferenceShape;
 ```
 
 
@@ -353,7 +354,7 @@ if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is("<")) {
 if (TypeConditionalScan.IsReferenceTail(units, tokenIndex)) {
   return true;
 }
-const start = TypeConditionalScan.RunStart(units);
+const start = TypeConditionalScan.RunStart(units, tokenIndex + 1);
 if (TypeConditionalScan.CodeCount(units, start, tokenIndex) === 0) {
   return false;
 }
@@ -378,10 +379,10 @@ return unit instanceof UnionTypeShape || unit instanceof IntersectionTypeShape;
 ```
 
 
-## static method LastTypeShape:(units:Array<Token>)=>Token | null
+## static method LastTypeShape:(units:Array<Token>, limit:int)=>Token | null
 
 ```ts
-const at = TypeConditionalScan.LastTypeIndex(units);
+const at = TypeConditionalScan.LastTypeIndex(units, limit);
 if (at < 0) {
   return null;
 }

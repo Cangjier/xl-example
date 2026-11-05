@@ -76,7 +76,7 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
 const unit = units[tokenIndex];
-const start = TypeConditionalScan.RunStart(units);
+const start = TypeConditionalScan.RunStart(units, units.length);
 if (!TypeConditionalScan.Balanced(units, start, tokenIndex)) {
   return false;
 }
