@@ -22,7 +22,7 @@ import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
 
 ```ts
 const units = host.Data;
-const start = StatementUtil.StartIndex(units, cache);
+const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (tokenIndex < start) {
   return ShapeStates.Uncertain;
 }
@@ -42,7 +42,7 @@ return ShapeStates.Accept;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-const start = StatementUtil.StartIndex(units, cache);
+const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (tokenIndex !== start || tokenIndex !== units.length - 1) {
   return false;
 }

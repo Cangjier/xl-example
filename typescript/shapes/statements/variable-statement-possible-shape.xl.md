@@ -29,7 +29,7 @@ import { VariableStatementShape } from "./variable-statement-shape.xl.md"
 
 ```ts
 const units = host.Data;
-const start = StatementUtil.StartIndex(units, cache);
+const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (start >= units.length) {
   return ShapeStates.Uncertain;
 }
@@ -43,7 +43,7 @@ return ShapeStates.Uncertain;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-const start = StatementUtil.StartIndex(units, cache);
+const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 const keywordIndex = start;
 if (keywordIndex >= units.length) {
   return false;
@@ -52,7 +52,7 @@ const keyword = units[keywordIndex];
 if (!(keyword instanceof Common) || keyword.TempToString() !== "let") {
   return false;
 }
-const identifierIndex = StatementUtil.NextCode(units, keywordIndex + 1);
+const identifierIndex = StatementUtil.NextCode(units, keywordIndex + 1, tokenIndex + 1);
 if (identifierIndex < 0 || identifierIndex !== tokenIndex || identifierIndex !== units.length - 1) {
   return false;
 }
@@ -64,7 +64,7 @@ return identifier instanceof Common && identifier.Closed;
 
 ```ts
 const units = host.Data;
-const start = StatementUtil.StartIndex(units, catalog.PossibleShapesComputeCache);
+const start = StatementUtil.StartIndex(units, tokenIndex, catalog.PossibleShapesComputeCache);
 const keywordIndex = start;
 const identifierIndex = StatementUtil.NextCode(units, keywordIndex + 1);
 if (keywordIndex < 0 || identifierIndex < 0) {

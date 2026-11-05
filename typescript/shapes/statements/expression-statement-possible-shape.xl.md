@@ -24,7 +24,7 @@ import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 
 ```ts
 const units = host.Data;
-const start = StatementUtil.StartIndex(units, cache);
+const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (start >= units.length || tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
@@ -47,7 +47,7 @@ return ShapeStates.Reject;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-const start = StatementUtil.StartIndex(units, cache);
+const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (start >= units.length || tokenIndex !== start || tokenIndex !== units.length - 1) {
   return false;
 }

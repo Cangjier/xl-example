@@ -50,7 +50,7 @@ return reference;
 
 ```ts
 const units = conditional.Data;
-const start = TypeConditionalScan.RunStart(units);
+const start = TypeConditionalScan.RunStart(units, units.length);
 const dot = TypeConditionalScan.FirstCodeIndex(units, start, tokenIndex + 1);
 const left = ItemUtil.PreviousCode(units, dot - 1);
 const reference = units[left] as TypeReferenceShape;
@@ -82,11 +82,11 @@ const open = units[tokenIndex] as Symbol;
 const pos = ItemUtil.PositionOf(units, tokenIndex);
 let reference: TypeReferenceShape;
 if (TypeConditionalScan.IsReferenceTail(units, tokenIndex)) {
-  reference = TypeConditionalScan.LastTypeShape(units) as TypeReferenceShape;
+  reference = TypeConditionalScan.LastTypeShape(units, units.length) as TypeReferenceShape;
   units.splice(tokenIndex, 1);
   reference.Closed = false;
 } else {
-  const start = TypeConditionalScan.RunStart(units);
+  const start = TypeConditionalScan.RunStart(units, units.length);
   const first = TypeConditionalScan.FirstCodeIndex(units, start, tokenIndex);
   const name = TypeParserApi.ParseEntityNamePrefix(units, first, tokenIndex, conditional.Template);
   reference = new TypeReferenceShape(conditional.Template);
@@ -206,7 +206,7 @@ return node;
 ```ts
 let target:Token = host;
 while (true) {
-  const at = TypeConditionalScan.LastTypeIndex(target.Data);
+  const at = TypeConditionalScan.LastTypeIndex(target.Data, target.Data.length);
   if (at < 0) {
     break;
   }
@@ -250,7 +250,7 @@ return TypeParserApi.ParseCompleteType(slice, slice.length, template);
 
 ```ts
 const units = host.Data;
-const start = TypeConditionalScan.RunStart(units);
+const start = TypeConditionalScan.RunStart(units, units.length);
 if (start >= to) {
   return null;
 }

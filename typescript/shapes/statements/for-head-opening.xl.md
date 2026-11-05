@@ -82,7 +82,7 @@ if (!(host instanceof ForHeadShape) || host.Init !== null || host.Mode !== "") {
   return ShapeStates.Reject;
 }
 const units = host.Data;
-const start = StatementUtil.StartIndex(units, cache);
+const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (tokenIndex < start) {
   return ShapeStates.Uncertain;
 }
@@ -112,7 +112,7 @@ const unit = units[tokenIndex];
 if (!(unit instanceof Common) || !unit.Closed) {
   return false;
 }
-const start = StatementUtil.StartIndex(units, cache);
+const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (tokenIndex !== start) {
   return false;
 }
@@ -149,8 +149,8 @@ if (!(unit instanceof Common)) {
 if (!unit.Closed) {
   return ShapeStates.Uncertain;
 }
-const keywordIndex = StatementUtil.StartIndex(units, cache);
-const nameIndex = StatementUtil.NextCode(units, keywordIndex + 1);
+const keywordIndex = StatementUtil.StartIndex(units, tokenIndex, cache);
+const nameIndex = StatementUtil.NextCode(units, keywordIndex + 1, tokenIndex + 1);
 if (nameIndex !== tokenIndex || tokenIndex !== units.length - 1) {
   return ShapeStates.Reject;
 }
@@ -174,7 +174,7 @@ const unit = units[tokenIndex];
 if (!(unit instanceof Common) || !unit.Closed || !OperandUtil.CanStartExpression(unit)) {
   return false;
 }
-const keywordIndex = StatementUtil.StartIndex(units, cache);
+const keywordIndex = StatementUtil.StartIndex(units, tokenIndex, cache);
 const keyword = units[keywordIndex];
 return keyword instanceof Common && keyword.Closed && keyword.IsAny(["let", "const", "var"]);
 ```
@@ -184,7 +184,7 @@ return keyword instanceof Common && keyword.Closed && keyword.IsAny(["let", "con
 ```ts
 const head = host as ForHeadShape;
 const units = head.Data;
-const keywordIndex = StatementUtil.StartIndex(units, catalog.PossibleShapesComputeCache);
+const keywordIndex = StatementUtil.StartIndex(units, tokenIndex, catalog.PossibleShapesComputeCache);
 const nameIndex = StatementUtil.NextCode(units, keywordIndex + 1);
 const keyword = units[keywordIndex] as Common;
 const common = units[nameIndex] as Common;
