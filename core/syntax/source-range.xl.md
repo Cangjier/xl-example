@@ -33,7 +33,7 @@ return new SourceRange(document, start, end);
 ## method At:(index:int)=>string
 
 ```ts
-if (index < 0 || this.Document === null) {
+if (index < 0 || index >= this.End || this.Document === null) {
   throw SourceException.SourceRangeIndexOutOfRange;
 }
 return this.Document.GetValue(index);
