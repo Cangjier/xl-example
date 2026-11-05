@@ -14,6 +14,7 @@ import { MinusTokenShape } from "../punctuation/binary-operator-token-shapes.xl.
 import { PlusTokenShape } from "../punctuation/plus-token-shape.xl.md"
 import { CallPossibleShape } from "./call-possible-shape.xl.md"
 import { ExpressionUtil } from "./expression-util.xl.md"
+import { ParenthesizedPossibleShape } from "./parenthesized-possible-shape.xl.md"
 import { PrefixOperandPossibleShape } from "./prefix-operand-possible-shape.xl.md"
 import { PrefixUnaryEndPossibleShape } from "./prefix-unary-end-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "./suffix-access-possible-shape.xl.md"
@@ -79,7 +80,13 @@ return !ExpressionUtil.IsClosedOperand(units[previousIndex]);
 
 ```ts
 return new CatalogGuide(
-  [new PrefixOperandPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape()],
+  [
+    new PrefixOperandPossibleShape(),
+    new SuffixAccessPossibleShape(),
+    new CallPossibleShape(),
+    new ParenthesizedPossibleShape(),
+    new PrefixUnaryPossibleShape(),
+  ],
   new PrefixUnaryEndPossibleShape(),
 );
 ```
@@ -136,6 +143,9 @@ shape.SignIn(unit.SourceRange.Start);
 shape.Operator = operator;
 shape.AwaitingOperand = true;
 units.splice(tokenIndex, 1, shape);
+if (host instanceof UnaryExpressionShape) {
+  (host as UnaryExpressionShape).AwaitingOperand = false;
+}
 shape.Parent = host;
 host.MountedUnit = shape;
 shape.CatalogGuide = PrefixUnaryPossibleShape.Guide();

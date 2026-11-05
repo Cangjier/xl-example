@@ -16,6 +16,7 @@ import { ConditionalEndPossibleShape } from "./conditional-end-possible-shape.xl
 import { ConditionalExpressionShape } from "./conditional-expression-shape.xl.md"
 import { ConditionalOperandPossibleShape } from "./conditional-operand-possible-shape.xl.md"
 import { ExpressionUtil } from "./expression-util.xl.md"
+import { ParenthesizedPossibleShape } from "./parenthesized-possible-shape.xl.md"
 import { PostfixUnaryPossibleShape } from "./postfix-unary-possible-shape.xl.md"
 import { PrefixUnaryPossibleShape } from "./prefix-unary-possible-shape.xl.md"
 import { QuestionTokenShape } from "../types/type-token-shapes.xl.md"
@@ -87,6 +88,7 @@ return new CatalogGuide(
     new ConditionalPossibleShape(),
     new PrefixUnaryPossibleShape(),
     new PostfixUnaryPossibleShape(),
+    new ParenthesizedPossibleShape(),
   ],
   new ConditionalEndPossibleShape(),
 );

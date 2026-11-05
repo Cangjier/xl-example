@@ -7,8 +7,11 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PostfixUnaryExpressionShape } from "../statements/postfix-unary-expression-shape.xl.md"
 import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
+import { AsExpressionShape } from "./as-expression-shape.xl.md"
 import { ConditionalExpressionShape } from "./conditional-expression-shape.xl.md"
+import { NewExpressionShape } from "./new-expression-shape.xl.md"
 import { OperandUtil } from "./operand-util.xl.md"
+import { ParenthesizedExpressionShape } from "./parenthesized-expression-shape.xl.md"
 import { SuffixAccessUtil } from "./suffix-access-util.xl.md"
 import { UnaryExpressionShape } from "./unary-expression-shape.xl.md"
 ```
@@ -36,6 +39,15 @@ if (unit instanceof PostfixUnaryExpressionShape) {
   return true;
 }
 if (unit.constructor.name === "CallExpressionShape") {
+  return true;
+}
+if (unit instanceof AsExpressionShape) {
+  return true;
+}
+if (unit instanceof NewExpressionShape) {
+  return true;
+}
+if (unit instanceof ParenthesizedExpressionShape) {
   return true;
 }
 return SuffixAccessUtil.IsOperand(unit);

@@ -19,6 +19,7 @@ import { BinaryOperatorTable } from "./binary-operator-table.xl.md"
 import { CallPossibleShape } from "./call-possible-shape.xl.md"
 import { ConditionalPossibleShape } from "./conditional-possible-shape.xl.md"
 import { ExpressionUtil } from "./expression-util.xl.md"
+import { ParenthesizedPossibleShape } from "./parenthesized-possible-shape.xl.md"
 import { PostfixUnaryPossibleShape } from "./postfix-unary-possible-shape.xl.md"
 import { PrefixUnaryPossibleShape } from "./prefix-unary-possible-shape.xl.md"
 import { RightOperandPossibleShape } from "./right-operand-possible-shape.xl.md"
@@ -153,6 +154,7 @@ return new CatalogGuide(
     new ConditionalPossibleShape(),
     new PrefixUnaryPossibleShape(),
     new PostfixUnaryPossibleShape(),
+    new ParenthesizedPossibleShape(),
   ],
   new BinaryExpressionEndPossibleShape(),
 );
