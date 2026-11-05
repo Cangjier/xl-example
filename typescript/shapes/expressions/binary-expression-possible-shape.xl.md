@@ -17,6 +17,10 @@ import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
 import { BinaryExpressionEndPossibleShape } from "./binary-expression-end-possible-shape.xl.md"
 import { BinaryOperatorTable } from "./binary-operator-table.xl.md"
 import { CallPossibleShape } from "./call-possible-shape.xl.md"
+import { ConditionalPossibleShape } from "./conditional-possible-shape.xl.md"
+import { ExpressionUtil } from "./expression-util.xl.md"
+import { PostfixUnaryPossibleShape } from "./postfix-unary-possible-shape.xl.md"
+import { PrefixUnaryPossibleShape } from "./prefix-unary-possible-shape.xl.md"
 import { RightOperandPossibleShape } from "./right-operand-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "./suffix-access-possible-shape.xl.md"
 import { SuffixAccessUtil } from "./suffix-access-util.xl.md"
@@ -57,6 +61,9 @@ if (!unit.Closed) {
 if (!BinaryOperatorTable.Contains(unit.TempToString())) {
   return ShapeStates.Reject;
 }
+if (PrefixUnaryPossibleShape.ShouldBuild(units, tokenIndex)) {
+  return ShapeStates.Reject;
+}
 if (host instanceof VariableDeclarationShape && unit.TempToString() === "=") {
   return ShapeStates.Reject;
 }
@@ -92,19 +99,7 @@ return BinaryExpressionPossibleShape.IsClosedOperand(units[leftIndex]);
 ## static method IsClosedOperand:(unit:Token)=>bool
 
 ```ts
-if (unit instanceof BinaryExpressionShape) {
-  return unit.Closed;
-}
-if (unit instanceof NumericLiteralShape) {
-  return unit.Closed;
-}
-if (unit instanceof IdentifierShape) {
-  return unit.Closed;
-}
-if (unit.constructor.name === "CallExpressionShape") {
-  return unit.Closed;
-}
-return SuffixAccessUtil.IsOperand(unit);
+return ExpressionUtil.IsClosedOperand(unit);
 ```
 
 ## static method PosOf:(unit:Token)=>int
@@ -144,6 +139,23 @@ for (let at = data.length - 1; at >= 0; at--) {
   return at;
 }
 return -1;
+```
+
+## static method Guide:()=>CatalogGuide
+
+```ts
+return new CatalogGuide(
+  [
+    new RightOperandPossibleShape(),
+    new BinaryExpressionPossibleShape(),
+    new SuffixAccessPossibleShape(),
+    new CallPossibleShape(),
+    new ConditionalPossibleShape(),
+    new PrefixUnaryPossibleShape(),
+    new PostfixUnaryPossibleShape(),
+  ],
+  new BinaryExpressionEndPossibleShape(),
+);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -198,7 +210,7 @@ if (host instanceof BinaryExpressionShape) {
       promoted.Data.splice(insertAt, 0, item);
       insertAt++;
     }
-    promoted.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape()], new BinaryExpressionEndPossibleShape());
+    promoted.CatalogGuide = BinaryExpressionPossibleShape.Guide();
     const at = container.Data.indexOf(target);
     if (at >= 0) {
       promoted.Parent = container;
@@ -222,7 +234,7 @@ if (left instanceof BinaryExpressionShape && left.Closed) {
       left.Closed = false;
       left.SourceRange.End = -1;
       left.MountedUnit = nested;
-      nested.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape()], new BinaryExpressionEndPossibleShape());
+      nested.CatalogGuide = BinaryExpressionPossibleShape.Guide();
       units.splice(tokenIndex, 1);
       host.MountedUnit = left;
       return this.StampCreated(nested, context);
@@ -243,6 +255,6 @@ for (const item of tail) {
 }
 binary.Parent = host;
 host.MountedUnit = binary;
-binary.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape()], new BinaryExpressionEndPossibleShape());
+binary.CatalogGuide = BinaryExpressionPossibleShape.Guide();
 return this.StampCreated(binary, context);
 ```
