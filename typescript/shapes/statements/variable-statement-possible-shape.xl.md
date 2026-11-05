@@ -14,6 +14,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { InitializerPossibleShape } from "../expressions/initializer-possible-shape.xl.md"
 import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-possible-shape.xl.md"
+import { CallPossibleShape } from "../expressions/call-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "../expressions/suffix-access-possible-shape.xl.md"
 import { AsiPossibleShape } from "./asi-possible-shape.xl.md"
 import { VariableDeclarationShape } from "../declarations/variable-declaration-shape.xl.md"
@@ -80,7 +81,7 @@ declaration.Pos = identifierPos;
 declaration.SignIn(identifier.SourceRange.Start);
 declaration.Add(identifier);
 declaration.CatalogGuide = new CatalogGuide(
-  [new InitializerPossibleShape(), new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape(), new AsiPossibleShape()],
+  [new InitializerPossibleShape(), new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new AsiPossibleShape()],
   new VariableStatementEndPossibleShape(),
 );
 const list = new VariableDeclarationListShape(host.Template);
