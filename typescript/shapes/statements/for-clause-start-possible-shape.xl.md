@@ -6,19 +6,23 @@ import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl
 import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { ExpressionUtil } from "../expressions/expression-util.xl.md"
 import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { StatementUtil } from "./statement-util.xl.md"
 import { ConditionOperatorPossibleShape } from "../conditions/condition-operator-possible-shape.xl.md"
+import { ConditionalPossibleShape } from "../expressions/conditional-possible-shape.xl.md"
+import { PostfixUnaryPossibleShape } from "../expressions/postfix-unary-possible-shape.xl.md"
+import { PrefixUnaryPossibleShape } from "../expressions/prefix-unary-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "../expressions/suffix-access-possible-shape.xl.md"
 import { CallPossibleShape } from "../expressions/call-possible-shape.xl.md"
 import { ForClauseShape } from "./for-clause-shape.xl.md"
 import { ForClauseEndPossibleShape } from "./for-clause-end-possible-shape.xl.md"
 import { ForHeadShape } from "./for-head-shape.xl.md"
 import { ForOfInKeywordPossibleShape } from "./for-of-in-keyword-possible-shape.xl.md"
-import { PostfixPossibleShape } from "./postfix-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -44,16 +48,19 @@ if (tokenIndex < start) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
-if (!(unit instanceof Common)) {
-  return ShapeStates.Reject;
-}
 if (!unit.Closed) {
   return ShapeStates.Uncertain;
 }
-if (tokenIndex !== start || !OperandUtil.CanStartExpression(unit)) {
+if (tokenIndex !== start) {
   return ShapeStates.Reject;
 }
-return ShapeStates.Accept;
+if (unit instanceof Common && OperandUtil.CanStartExpression(unit)) {
+  return ShapeStates.Accept;
+}
+if (ExpressionUtil.IsPrefixOperator(unit)) {
+  return ShapeStates.Accept;
+}
+return ShapeStates.Reject;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
@@ -64,7 +71,13 @@ if (tokenIndex !== start || tokenIndex !== units.length - 1) {
   return false;
 }
 const unit = units[tokenIndex];
-return unit instanceof Common && unit.Closed && OperandUtil.CanStartExpression(unit);
+if (!unit.Closed) {
+  return false;
+}
+if (unit instanceof Common && OperandUtil.CanStartExpression(unit)) {
+  return true;
+}
+return ExpressionUtil.IsPrefixOperator(unit);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -72,21 +85,32 @@ return unit instanceof Common && unit.Closed && OperandUtil.CanStartExpression(u
 ```ts
 const head = host as ForHeadShape;
 const units = head.Data;
-const common = units[tokenIndex] as Common;
+const unit = units[tokenIndex];
 const pos = ItemUtil.PositionOf(units, tokenIndex);
 const clause = new ForClauseShape(host.Template);
+const guide = new CatalogGuide(
+  [new ConditionOperatorPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new ConditionalPossibleShape(), new PostfixUnaryPossibleShape(), new ForOfInKeywordPossibleShape()],
+  new ForClauseEndPossibleShape(),
+);
 clause.Role = head.Segment;
 clause.Pos = pos;
-clause.SignIn(common.SourceRange.Start);
-const operand = OperandUtil.FromCommon(common, pos);
+clause.SignIn(unit.SourceRange.Start);
+clause.CatalogGuide = guide;
 units.splice(tokenIndex, 1, clause);
+if (ExpressionUtil.IsPrefixOperator(unit)) {
+  clause.Add(unit);
+  clause.Parent = head;
+  head.MountedUnit = clause;
+  const built = new PrefixUnaryPossibleShape().BuildByIndex(clause, 0, guide, context);
+  if (built instanceof ShapeToken) {
+    built.Pos = pos;
+  }
+  return this.StampCreated(clause, context);
+}
+const operand = OperandUtil.FromCommon(unit as Common, pos);
 clause.Add(operand);
 clause.Parent = head;
 clause.SignOut(operand.SourceRange.End);
-clause.CatalogGuide = new CatalogGuide(
-  [new ConditionOperatorPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new PostfixPossibleShape(), new ForOfInKeywordPossibleShape()],
-  new ForClauseEndPossibleShape(),
-);
 head.MountedUnit = clause;
 return this.StampCreated(clause, context);
 ```

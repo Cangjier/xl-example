@@ -14,6 +14,9 @@ import { ConditionShape } from "./condition-shape.xl.md"
 import { ConditionOperandPossibleShape } from "./condition-operand-possible-shape.xl.md"
 import { ConditionOperatorPossibleShape } from "./condition-operator-possible-shape.xl.md"
 import { ConditionEndPossibleShape } from "./condition-end-possible-shape.xl.md"
+import { ConditionalPossibleShape } from "../expressions/conditional-possible-shape.xl.md"
+import { PostfixUnaryPossibleShape } from "../expressions/postfix-unary-possible-shape.xl.md"
+import { PrefixUnaryPossibleShape } from "../expressions/prefix-unary-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "../expressions/suffix-access-possible-shape.xl.md"
 import { CallPossibleShape } from "../expressions/call-possible-shape.xl.md"
 ```
@@ -59,7 +62,7 @@ condition.Pos = ItemUtil.PositionOf(units, tokenIndex);
 condition.SignIn(open.SourceRange.Start);
 condition.SignOut(open.SourceRange.End);
 condition.CatalogGuide = new CatalogGuide(
-  [new ConditionOperandPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new ConditionOperatorPossibleShape()],
+  [new ConditionOperandPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new ConditionalPossibleShape(), new PrefixUnaryPossibleShape(), new PostfixUnaryPossibleShape(), new ConditionOperatorPossibleShape()],
   new ConditionEndPossibleShape(),
 );
 units.splice(tokenIndex, 1, condition);

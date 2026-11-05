@@ -7,11 +7,16 @@ import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { ExpressionUtil } from "../expressions/expression-util.xl.md"
 import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-possible-shape.xl.md"
+import { ConditionalPossibleShape } from "../expressions/conditional-possible-shape.xl.md"
+import { PostfixUnaryPossibleShape } from "../expressions/postfix-unary-possible-shape.xl.md"
+import { PrefixUnaryPossibleShape } from "../expressions/prefix-unary-possible-shape.xl.md"
 import { SuffixAccessPossibleShape } from "../expressions/suffix-access-possible-shape.xl.md"
 import { CallPossibleShape } from "../expressions/call-possible-shape.xl.md"
 import { ConditionCreatePossibleShape } from "../conditions/condition-create-possible-shape.xl.md"
@@ -59,7 +64,13 @@ if (unit instanceof Symbol) {
     }
     return ShapeStates.Accept;
   }
-  if (!unit.Is("{")) {
+  if (unit.Is("{")) {
+    if (!ControlBodyPossibleShape.FollowsHead(host, units, tokenIndex)) {
+      return ShapeStates.Reject;
+    }
+    return ShapeStates.Accept;
+  }
+  if (!ExpressionUtil.IsPrefixOperator(unit)) {
     return ShapeStates.Reject;
   }
   if (!ControlBodyPossibleShape.FollowsHead(host, units, tokenIndex)) {
@@ -113,7 +124,13 @@ if (prev !== null && !ControlBodyPossibleShape.IsOperand(prev) && !isElseHead) {
   return false;
 }
 if (unit instanceof Symbol) {
-  return unit.Closed && (unit.Is("{") || unit.Is(";"));
+  if (!unit.Closed) {
+    return false;
+  }
+  if (unit.Is("{") || unit.Is(";")) {
+    return true;
+  }
+  return ExpressionUtil.IsPrefixOperator(unit);
 }
 if (unit instanceof Common && unit.Closed && unit.Is("if")) {
   return true;
@@ -125,7 +142,7 @@ return unit instanceof Common && unit.Closed && OperandUtil.CanStartExpression(u
 
 ```ts
 const name = unit.constructor.name;
-return unit.Closed && (name === "IdentifierShape" || name === "NumericLiteralShape" || name === "BinaryExpressionShape" || name === "CallExpressionShape" || name === "PostfixUnaryExpressionShape" || name === "PropertyAccessExpressionShape" || name === "ElementAccessExpressionShape");
+return unit.Closed && (name === "IdentifierShape" || name === "NumericLiteralShape" || name === "BinaryExpressionShape" || name === "CallExpressionShape" || name === "ConditionalExpressionShape" || name === "PostfixUnaryExpressionShape" || name === "UnaryExpressionShape" || name === "PrefixUnaryExpressionShape" || name === "TypeOfExpressionShape" || name === "VoidExpressionShape" || name === "DeleteExpressionShape" || name === "PropertyAccessExpressionShape" || name === "ElementAccessExpressionShape");
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -187,6 +204,31 @@ if (unit instanceof Common && unit.Is("if")) {
   host.MountedUnit = statement;
   return this.StampCreated(statement, context);
 }
+if (unit instanceof Symbol && ExpressionUtil.IsPrefixOperator(unit)) {
+  const pos = ItemUtil.PositionOf(units, tokenIndex);
+  const body = new ExpressionStatementShape(host.Template);
+  const guide = new CatalogGuide(
+    [new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new ConditionalPossibleShape(), new PostfixUnaryPossibleShape()],
+    new ControlBodyEndPossibleShape(),
+  );
+  body.Pos = pos;
+  body.SignIn(unit.SourceRange.Start);
+  body.CatalogGuide = guide;
+  units.splice(tokenIndex, 1, body);
+  body.Add(unit);
+  body.Parent = host;
+  if (isElseBody) {
+    control.ElseBody = body;
+  } else {
+    control.Body = body;
+  }
+  host.MountedUnit = body;
+  const built = new PrefixUnaryPossibleShape().BuildByIndex(body, 0, guide, context);
+  if (built instanceof ShapeToken) {
+    built.Pos = pos;
+  }
+  return this.StampCreated(body, context);
+}
 const common = unit as Common;
 const pos = OperandUtil.PositionOf(units, tokenIndex);
 const operand = OperandUtil.FromCommon(common, pos);
@@ -195,7 +237,7 @@ body.Pos = pos;
 body.SignIn(common.SourceRange.Start);
 body.Add(operand);
 body.CatalogGuide = new CatalogGuide(
-  [new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape()],
+  [new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape(), new CallPossibleShape(), new ConditionalPossibleShape(), new PostfixUnaryPossibleShape()],
   new ControlBodyEndPossibleShape(),
 );
 units.splice(tokenIndex, 1, body);
