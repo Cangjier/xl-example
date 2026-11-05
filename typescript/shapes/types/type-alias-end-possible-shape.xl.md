@@ -147,11 +147,7 @@ for (let at = prevIndex + 1; at < tokenIndex; at++) {
   if (!item.IsTriviaToken) {
     continue;
   }
-  const range = item.SourceRange;
-  if (range.Document === null || range.Start < 0 || range.End < 0) {
-    continue;
-  }
-  const text = range.Document.GetRaw(range.Start, range.End);
+  const text = item.AstText();
   if (text.indexOf("\n") >= 0 || text.indexOf("\r") >= 0 || text.indexOf("\u2028") >= 0 || text.indexOf("\u2029") >= 0) {
     return true;
   }
