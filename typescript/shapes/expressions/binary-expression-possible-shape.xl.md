@@ -17,6 +17,8 @@ import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
 import { BinaryExpressionEndPossibleShape } from "./binary-expression-end-possible-shape.xl.md"
 import { BinaryOperatorTable } from "./binary-operator-table.xl.md"
 import { RightOperandPossibleShape } from "./right-operand-possible-shape.xl.md"
+import { SuffixAccessPossibleShape } from "./suffix-access-possible-shape.xl.md"
+import { SuffixAccessUtil } from "./suffix-access-util.xl.md"
 import { VariableDeclarationShape } from "../declarations/variable-declaration-shape.xl.md"
 ```
 
@@ -98,7 +100,7 @@ if (unit instanceof NumericLiteralShape) {
 if (unit instanceof IdentifierShape) {
   return unit.Closed;
 }
-return false;
+return SuffixAccessUtil.IsOperand(unit);
 ```
 
 ## static method PosOf:(unit:Token)=>int
@@ -192,7 +194,7 @@ if (host instanceof BinaryExpressionShape) {
       promoted.Data.splice(insertAt, 0, item);
       insertAt++;
     }
-    promoted.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
+    promoted.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape()], new BinaryExpressionEndPossibleShape());
     const at = container.Data.indexOf(target);
     if (at >= 0) {
       promoted.Parent = container;
@@ -216,7 +218,7 @@ if (left instanceof BinaryExpressionShape && left.Closed) {
       left.Closed = false;
       left.SourceRange.End = -1;
       left.MountedUnit = nested;
-      nested.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
+      nested.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape()], new BinaryExpressionEndPossibleShape());
       units.splice(tokenIndex, 1);
       host.MountedUnit = left;
       return this.StampCreated(nested, context);
@@ -237,6 +239,6 @@ for (const item of tail) {
 }
 binary.Parent = host;
 host.MountedUnit = binary;
-binary.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
+binary.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape(), new SuffixAccessPossibleShape()], new BinaryExpressionEndPossibleShape());
 return this.StampCreated(binary, context);
 ```
