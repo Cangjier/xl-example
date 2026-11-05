@@ -8,6 +8,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { StatementUtil } from "./statement-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
@@ -18,15 +19,17 @@ import { DebuggerStatementShape } from "./debugger-statement-shape.xl.md"
 
 # class DebuggerStatementPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (start >= units.length || tokenIndex < start || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit instanceof Common) {
   if (tokenIndex === start && unit.TempToString() === "debugger") {
     return ShapeStates.Uncertain;
@@ -42,9 +45,11 @@ if (DebuggerStatementPossibleShape.IsPattern(units, start, tokenIndex)) {
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex !== units.length - 1) {
   return false;
 }
@@ -75,12 +80,14 @@ const head = units[headIndex];
 return head instanceof Common && head.Closed && head.TempToString() === "debugger";
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, catalog.PossibleShapesComputeCache);
-const semicolon = units[tokenIndex] as Symbol;
+const semicolon = index.At(tokenIndex) as Symbol;
 const keywordIndex = StatementUtil.NextCode(units, start);
 const keyword = units[keywordIndex] as Common;
 const shape = DebuggerStatementShape.FromKeywordAndSemicolon(keyword, semicolon, ItemUtil.PositionOf(units, start));
