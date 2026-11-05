@@ -12,6 +12,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { StatementUtil } from "./statement-util.xl.md"
 import { ForHeadShape } from "./for-head-shape.xl.md"
 import { ForOpenPossibleShape } from "./for-head-opening.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 ```
 
 # namespace cangjie
@@ -19,15 +20,17 @@ import { ForOpenPossibleShape } from "./for-head-opening.xl.md"
 # class ForStatementPossibleShape extends PossibleShape
 
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (tokenIndex < start) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Common)) {
   return ShapeStates.Reject;
 }
@@ -40,22 +43,26 @@ if (tokenIndex !== start || unit.TempToString() !== "for") {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (tokenIndex !== start || tokenIndex !== units.length - 1) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 return unit instanceof Common && unit.Closed && unit.TempToString() === "for";
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const keyword = units[tokenIndex] as Common;
+const tokenIndex = index.Index;
+const keyword = index.At(tokenIndex) as Common;
 const head = new ForHeadShape(host.Template);
 head.Pos = ItemUtil.PositionOf(units, tokenIndex);
 head.SignIn(keyword.SourceRange.Start);

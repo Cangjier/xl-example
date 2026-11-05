@@ -20,6 +20,7 @@ import { ForOfInKeywordPossibleShape } from "./for-of-in-keyword-possible-shape.
 import { ForClosePossibleShape } from "./for-close-possible-shape.xl.md"
 import { ForClauseStartPossibleShape } from "./for-clause-start-possible-shape.xl.md"
 import { ForDeclarationInitPossibleShape } from "./for-declaration-init-possible-shape.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 ```
 
 # namespace cangjie
@@ -27,17 +28,19 @@ import { ForDeclarationInitPossibleShape } from "./for-declaration-init-possible
 # class ForOpenPossibleShape extends PossibleShape
 
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 if (!(host instanceof ForHeadShape) || host.Init !== null || host.Mode !== "") {
   return ShapeStates.Reject;
 }
-const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Symbol) || !unit.Closed) {
   return ShapeStates.Reject;
 }
@@ -47,23 +50,28 @@ if (!unit.Is("(")) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 return unit instanceof Symbol && unit.Closed && unit.Is("(");
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 const head = host as ForHeadShape;
-const index = head.DropTriviaBefore(tokenIndex);
-const open = head.Data[index] as Symbol;
-head.Data.splice(index, 1);
+const shapeIndex = head.DropTriviaBefore(tokenIndex);
+const open = head.Data[shapeIndex] as Symbol;
+head.Data.splice(shapeIndex, 1);
 head.CatalogGuide = new CatalogGuide(
   [new ForBindingPossibleShape(), new ForClauseStartPossibleShape(), new ForSemicolonPossibleShape()],
   null,
@@ -75,18 +83,20 @@ return this.StampCreated(open, context);
 # class ForBindingPossibleShape extends PossibleShape
 
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 if (!(host instanceof ForHeadShape) || host.Init !== null || host.Mode !== "") {
   return ShapeStates.Reject;
 }
-const units = host.Data;
 const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (tokenIndex < start) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Common)) {
   return ShapeStates.Reject;
 }
@@ -102,13 +112,15 @@ if (unit.IsAny(["let", "const", "var"])) {
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Common) || !unit.Closed) {
   return false;
 }
@@ -119,11 +131,14 @@ if (tokenIndex !== start) {
 return unit.IsAny(["let", "const", "var"]);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 const head = host as ForHeadShape;
-const common = head.Data[tokenIndex] as Common;
+const common = index.At(tokenIndex) as Common;
 head.CatalogGuide = new CatalogGuide([new ForDeclarationNamePossibleShape()], null);
 head.MountedUnit = null;
 return this.StampCreated(common, context);
@@ -132,17 +147,19 @@ return this.StampCreated(common, context);
 # class ForDeclarationNamePossibleShape extends PossibleShape
 
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 if (!(host instanceof ForHeadShape) || host.Init !== null || host.Mode !== "") {
   return ShapeStates.Reject;
 }
-const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Common)) {
   return ShapeStates.Reject;
 }
@@ -164,13 +181,15 @@ if (!OperandUtil.CanStartExpression(unit)) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex !== units.length - 1) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Common) || !unit.Closed || !OperandUtil.CanStartExpression(unit)) {
   return false;
 }
@@ -179,11 +198,13 @@ const keyword = units[keywordIndex];
 return keyword instanceof Common && keyword.Closed && keyword.IsAny(["let", "const", "var"]);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 const head = host as ForHeadShape;
-const units = head.Data;
 const keywordIndex = StatementUtil.StartIndex(units, tokenIndex, catalog.PossibleShapesComputeCache);
 const nameIndex = StatementUtil.NextCode(units, keywordIndex + 1);
 const keyword = units[keywordIndex] as Common;
@@ -215,9 +236,12 @@ return this.StampCreated(list, context);
 # class ForSemicolonPossibleShape extends PossibleShape
 
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 if (!(host instanceof ForHeadShape)) {
   return ShapeStates.Reject;
 }
@@ -233,11 +257,10 @@ if (host.Segment === 0 && host.Init !== null) {
 if (host.Segment === 1 && host.Condition !== null) {
   return ShapeStates.Reject;
 }
-const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -247,23 +270,28 @@ if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(";")) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 return unit instanceof Symbol && unit.Closed && unit.Is(";");
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 const head = host as ForHeadShape;
-const index = head.DropTriviaBefore(tokenIndex);
-const semicolon = head.Data[index] as Symbol;
-head.Data.splice(index, 1);
+const shapeIndex = head.DropTriviaBefore(tokenIndex);
+const semicolon = head.Data[shapeIndex] as Symbol;
+head.Data.splice(shapeIndex, 1);
 head.Mode = "classic";
 if (head.Segment === 0) {
   head.Segment = 1;

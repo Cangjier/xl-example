@@ -12,6 +12,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ForClauseShape } from "./for-clause-shape.xl.md"
 import { ForHeadShape } from "./for-head-shape.xl.md"
 import { ForSourcePossibleShape } from "./for-source-possible-shape.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 ```
 
 # namespace cangjie
@@ -19,20 +20,22 @@ import { ForSourcePossibleShape } from "./for-source-possible-shape.xl.md"
 # class ForOfInKeywordPossibleShape extends PossibleShape
 
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 if (host instanceof ForClauseShape) {
   return this.ComputeInClause(host as ForClauseShape, tokenIndex);
 }
 if (!(host instanceof ForHeadShape) || host.Init === null || host.Mode !== "" || host.Right !== null) {
   return ShapeStates.Reject;
 }
-const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit.IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
@@ -88,27 +91,32 @@ if (prevIndex < 0 || units[prevIndex] !== expression) {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 return unit instanceof Common && unit.Closed && unit.IsAny(["of", "in"]);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 if (host instanceof ForClauseShape) {
   return this.BuildInClause(host as ForClauseShape, tokenIndex, context);
 }
 const head = host as ForHeadShape;
-const index = head.DropTriviaBefore(tokenIndex);
-const keyword = head.Data[index] as Common;
+const shapeIndex = head.DropTriviaBefore(tokenIndex);
+const keyword = head.Data[shapeIndex] as Common;
 head.Mode = keyword.TempToString();
-head.Data.splice(index, 1);
+head.Data.splice(shapeIndex, 1);
 head.CatalogGuide = new CatalogGuide([new ForSourcePossibleShape()], null);
 head.MountedUnit = null;
 return this.StampCreated(keyword, context);

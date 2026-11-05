@@ -9,6 +9,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { SimpleStatementShape } from "./simple-statement-shape.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 ```
 
 # namespace cangjie
@@ -16,34 +17,41 @@ import { SimpleStatementShape } from "./simple-statement-shape.xl.md"
 # class StatementEndPossibleShape extends PossibleShape
 
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Reject;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
   return ShapeStates.Accept;
 }
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 return unit instanceof Symbol && unit.Closed && unit.Is(";");
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const semicolon = host.Data[tokenIndex] as Symbol;
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
+const semicolon = index.At(tokenIndex) as Symbol;
 host.SourceRange.End = semicolon.SourceRange.End;
 (host as SimpleStatementShape).EndsWithSemicolon = true;
 host.TryToClose(context);

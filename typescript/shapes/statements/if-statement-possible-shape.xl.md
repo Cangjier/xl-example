@@ -12,21 +12,24 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { StatementUtil } from "./statement-util.xl.md"
 import { ConditionCreatePossibleShape } from "../conditions/condition-create-possible-shape.xl.md"
 import { IfStatementShape } from "./if-statement-shape.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 ```
 
 # namespace cangjie
 
 # class IfStatementPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (tokenIndex < start) {
   return ShapeStates.Uncertain;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (!(unit instanceof Common)) {
   return ShapeStates.Reject;
 }
@@ -39,22 +42,26 @@ if (tokenIndex !== start || unit.TempToString() !== "if") {
 return ShapeStates.Accept;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 const start = StatementUtil.StartIndex(units, tokenIndex, cache);
 if (tokenIndex !== start || tokenIndex !== units.length - 1) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 return unit instanceof Common && unit.Closed && unit.TempToString() === "if";
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
 const units = host.Data;
-const keyword = units[tokenIndex] as Common;
+const tokenIndex = index.Index;
+const keyword = index.At(tokenIndex) as Common;
 const pos = ItemUtil.PositionOf(units, tokenIndex);
 const statement = new IfStatementShape(host.Template);
 statement.Kind = "if";
