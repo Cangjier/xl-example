@@ -69,6 +69,9 @@ const unit = units[tokenIndex];
 if (unit instanceof Symbol && unit.Closed && unit.Is("=>")) {
   return ShapeStates.Reject;
 }
+if (unit instanceof Symbol && unit.Closed && unit.Is(".")) {
+  return ShapeStates.Reject;
+}
 if (unit instanceof Common && unit.Closed && unit.Is("extends")) {
   if (TypeConditionalScan.CodeCount(units, equals + 1, tokenIndex) > 0
       && TypeConditionalScan.Balanced(units, equals + 1, tokenIndex)) {

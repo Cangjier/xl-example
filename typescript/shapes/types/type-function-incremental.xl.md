@@ -19,6 +19,7 @@ import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { AssertsKeywordShape } from "./type-token-shapes.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
 import { FunctionTypeShape } from "./type-node-shapes.xl.md"
+import { ParenthesizedTypeShape } from "./type-node-shapes.xl.md"
 import { LiteralTypeShape } from "./type-node-shapes.xl.md"
 import { TypePredicateShape } from "./type-node-shapes.xl.md"
 import { TypeReferenceShape } from "./type-node-shapes.xl.md"
@@ -26,6 +27,7 @@ import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { TypeAliasEndPossibleShape } from "./type-alias-end-possible-shape.xl.md"
 import { TypeParameterListShape } from "./type-parameter-list-shape.xl.md"
 import { TypeBodyUtil } from "./type-body-util.xl.md"
+import { TypeConditionalScan } from "./type-conditional-scan-util.xl.md"
 import { TypeBalanceUtil } from "./type-balance-util.xl.md"
 import { TypeKeywordUtil } from "./type-keyword-util.xl.md"
 import { TypeParserApi } from "./type-parser-api.xl.md"
@@ -114,6 +116,25 @@ if (unit instanceof Common && unit.Closed && TypeAliasEndPossibleShape.IsStateme
 }
 if (unit instanceof Common && unit.Closed && unit.Is("extends")) {
   return ShapeStates.Reject;
+}
+const bodyEquals = TypeConditionalScan.TopLevelEquals(units, units.length);
+const bodyIndex = bodyEquals < 0 ? -1 : TypeConditionalScan.FirstCodeIndex(units, bodyEquals + 1, units.length);
+if (bodyIndex < 0) {
+  return ShapeStates.Uncertain;
+}
+const first = units[bodyIndex];
+if (first instanceof Symbol) {
+  const text = first.TempToString();
+  return text === "(" || text === "<" ? ShapeStates.Uncertain : ShapeStates.Reject;
+}
+if (first instanceof TypeShape) {
+  return first instanceof ParenthesizedTypeShape ? ShapeStates.Uncertain : ShapeStates.Reject;
+}
+if (first instanceof Common && first.Closed) {
+  const text = first.TempToString();
+  if (text !== "new" && text !== "abstract") {
+    return ShapeStates.Reject;
+  }
 }
 return ShapeStates.Uncertain;
 ```

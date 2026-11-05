@@ -17,6 +17,8 @@ import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { TypeAliasEndPossibleShape } from "./type-alias-end-possible-shape.xl.md"
 import { TypeFunctionArrowPossibleShape } from "./type-function-incremental.xl.md"
 import { TypeAliasChainPossibleShape } from "./type-conditional-chain.xl.md"
+import { TypeAliasIndexPossibleShape } from "./type-alias-member-possible-shape.xl.md"
+import { TypeAliasMemberPossibleShape } from "./type-alias-member-possible-shape.xl.md"
 import { TypeReferenceShape } from "./type-node-shapes.xl.md"
 import { ArrayTypeShape } from "./type-node-shapes.xl.md"
 import { UnionTypeShape } from "./type-node-shapes.xl.md"
@@ -95,6 +97,8 @@ alias.CatalogGuide = new CatalogGuide(
     new TypeAliasBodyPossibleShape(),
     new TypeAliasBodyKeywordPossibleShape(),
     new TypeAliasArraySuffixPossibleShape(),
+    new TypeAliasMemberPossibleShape(),
+    new TypeAliasIndexPossibleShape(),
     new TypeAliasOperatorMemberPossibleShape(),
     new TypeFunctionArrowPossibleShape(),
     new TypeAliasChainPossibleShape(),
