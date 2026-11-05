@@ -7,6 +7,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenIndex } from "../../../core/syntax/token-index.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ControlStatementShape } from "../statements/control-statement-shape.xl.md"
 import { ControlBodyPossibleShape } from "../statements/control-body-possible-shape.xl.md"
@@ -20,40 +21,46 @@ import { ConditionCloseDispatch } from "./condition-close-dispatch.xl.md"
 
 # class ConditionEndPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(index:TokenIndex, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
+const host = index.Host;
 const units = host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Reject;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 if (unit instanceof Symbol && unit.Closed && unit.Is(")")) {
   return ShapeStates.Accept;
 }
 return ShapeStates.Reject;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(index:TokenIndex, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+const units = index.Host.Data;
+const tokenIndex = index.Index;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
-const unit = units[tokenIndex];
+const unit = index.At(tokenIndex);
 return unit instanceof Symbol && unit.Closed && unit.Is(")");
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(index:TokenIndex, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+const host = index.Host;
+const units = host.Data;
+const tokenIndex = index.Index;
 const condition = host as ConditionShape;
-const close = condition.Data[tokenIndex] as Symbol;
+const close = index.At(tokenIndex) as Symbol;
 const last = condition.Last();
 if (last !== null && !last.Closed) {
   last.TryToClose(context);
 }
-const units = condition.Data;
 const code: Array<Token> = [];
 for (let cursor = 0; cursor < tokenIndex; cursor++) {
   const item = units[cursor];
