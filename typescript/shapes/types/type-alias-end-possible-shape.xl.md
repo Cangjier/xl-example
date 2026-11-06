@@ -14,6 +14,7 @@ import { ItemUtil } from "../item-util.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { TypeBalanceUtil } from "./type-balance-util.xl.md"
 import { TypeParserApi } from "./type-parser-api.xl.md"
+import { TypeFallbackGuard } from "./type-fallback-guard.xl.md"
 ```
 
 # namespace cangjie
@@ -89,6 +90,8 @@ if (unit instanceof Symbol && unit.Is(";")) {
 if (alias.HasBuiltType()) {
   alias.TryToClose(context);
 } else {
+  // 收口（T5）：与 TypeAliasDeclarationShape.Close 同一道闸；开关关时照旧 ParseAlias。
+  TypeFallbackGuard.Hit("TypeAliasEndPossibleShape.BuildByIndex", TypeFallbackGuard.Describe(units));
   const parsed = TypeParserApi.ParseAlias(units, units.length, alias.Template);
   TypeAliasDeclarationShape.Apply(alias, parsed, end);
   PossibleShape.StampAll(alias, context.Index);
