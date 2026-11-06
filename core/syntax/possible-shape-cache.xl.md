@@ -44,30 +44,8 @@ this.Share.set(possibleShapeName, value);
 this.Share.clear();
 ```
 
-## field ItemStartValue:int = -1
-
-## field ItemStartLength:int = -1
-
-## method GetItemStart:(unitsLength:int)=>int
-
-```ts
-if (this.ItemStartValue < 0 || this.ItemStartLength !== unitsLength) {
-  return -1;
-}
-return this.ItemStartValue;
-```
-
-## method SetItemStart:(value:int, unitsLength:int)=>void
-
-```ts
-this.ItemStartValue = value;
-this.ItemStartLength = unitsLength;
-```
-
 ## method Clear:()=>void
 
 ```ts
 this.Values.clear();
-this.ItemStartValue = -1;
-this.ItemStartLength = -1;
 ```
