@@ -32,6 +32,7 @@ import { TypeConditionalScan } from "./type-conditional-scan-util.xl.md"
 import { TypeBalanceUtil } from "./type-balance-util.xl.md"
 import { TypeKeywordUtil } from "./type-keyword-util.xl.md"
 import { TypeParserApi } from "./type-parser-api.xl.md"
+import { FunctionBuild } from "./forms/function-shapes.xl.md"
 ```
 
 
@@ -57,7 +58,7 @@ if (this.Predicate !== null) {
   }
   type = this.Predicate;
 } else {
-  type = TypeParserApi.ParseCompleteReturnType(this.Data, this.Data.length, this.Template);
+  type = FunctionBuild.FinishReturn(this) ?? TypeParserApi.ParseCompleteReturnType(this.Data, this.Data.length, this.Template);
 }
 this.Data = [type];
 type.Parent = this;
@@ -128,7 +129,7 @@ if (bodyIndex < 0) {
 const first = units[bodyIndex];
 if (first instanceof Symbol) {
   const text = first.TempToString();
-  return text === "(" || text === "<" ? ShapeStates.Uncertain : ShapeStates.Reject;
+  return text === "(" ? ShapeStates.Uncertain : ShapeStates.Reject;
 }
 if (first instanceof TypeShape) {
   return first instanceof ParenthesizedTypeShape ? ShapeStates.Uncertain : ShapeStates.Reject;
