@@ -452,17 +452,12 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="{"
-   ├─ WrapSymbol  src=[10,11)  text=" "
-   ├─ Common  src=[11,19)  text="readonly"
-   ├─ WrapSymbol  src=[19,20)  text=" "
-   ├─ Common  src=[20,21)  text="a"
-   ├─ Symbol  src=[21,22)  text="?"
-   ├─ Symbol  src=[22,23)  text=":"
-   ├─ WrapSymbol  src=[23,24)  text=" "
-   ├─ Common  src=[24,30)  text="string"
-   ├─ WrapSymbol  src=[30,31)  text=" "
-   └─ Symbol  src=[31,32)  text="}"
+   └─ TypeLiteralShape  pos=8  src=[9,32)
+      └─ PropertySignatureShape  pos=10  src=[11,30)
+         ├─ ReadonlyKeywordShape  pos=10  src=[11,19)  text="readonly"
+         ├─ IdentifierShape  pos=19  src=[20,21)  text="a"
+         ├─ QuestionTokenShape  pos=21  src=[21,22)  text="?"  op="?"
+         └─ StringKeywordShape  pos=23  src=[24,30)  text="string"
 ```
 
 ## [char 32] `"\n"`
@@ -474,17 +469,12 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="{"
-   ├─ WrapSymbol  src=[10,11)  text=" "
-   ├─ Common  src=[11,19)  text="readonly"
-   ├─ WrapSymbol  src=[19,20)  text=" "
-   ├─ Common  src=[20,21)  text="a"
-   ├─ Symbol  src=[21,22)  text="?"
-   ├─ Symbol  src=[22,23)  text=":"
-   ├─ WrapSymbol  src=[23,24)  text=" "
-   ├─ Common  src=[24,30)  text="string"
-   ├─ WrapSymbol  src=[30,31)  text=" "
-   ├─ Symbol  src=[31,32)  text="}"
+   ├─ TypeLiteralShape  pos=8  src=[9,32)
+   │  └─ PropertySignatureShape  pos=10  src=[11,30)
+   │     ├─ ReadonlyKeywordShape  pos=10  src=[11,19)  text="readonly"
+   │     ├─ IdentifierShape  pos=19  src=[20,21)  text="a"
+   │     ├─ QuestionTokenShape  pos=21  src=[21,22)  text="?"  op="?"
+   │     └─ StringKeywordShape  pos=23  src=[24,30)  text="string"
    └─ WrapSymbol  src=[32,33)  text="\n"
 ```
 

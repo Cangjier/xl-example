@@ -274,19 +274,14 @@ SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    ├─ WrapSymbol  src=[6,7)  text=" "
-   ├─ Symbol  src=[7,8)  text="="
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="<"
-   ├─ Common  src=[10,11)  text="T"
-   ├─ Symbol  src=[11,12)  text=">"
-   ├─ Symbol  src=[12,13)  text="("
-   ├─ Common  src=[13,14)  text="a"
-   ├─ Symbol  src=[14,15)  text=":"
-   ├─ WrapSymbol  src=[15,16)  text=" "
-   ├─ Common  src=[16,17)  text="T"
-   ├─ Symbol  src=[17,18)  text=")"
-   ├─ WrapSymbol  src=[18,19)  text=" "
-   └─ Symbol  src=[19,21)  text="=>"
+   └─ FunctionTypeShape  pos=8  src=[9,21)
+      ├─ TypeParameterShape  pos=10  src=[10,11)
+      │  └─ IdentifierShape  pos=10  src=[10,11)  text="T"
+      ├─ ParameterShape  pos=13  src=[13,17)
+      │  ├─ IdentifierShape  pos=13  src=[13,14)  text="a"
+      │  └─ TypeReferenceShape  pos=15  src=[16,17)
+      │     └─ IdentifierShape  pos=15  src=[16,17)  text="T"
+      └─ ReturnTypeContextShape  pos=18  src=[21,21)
 ```
 
 ## [char 21] `" "`
@@ -296,20 +291,15 @@ SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    ├─ WrapSymbol  src=[6,7)  text=" "
-   ├─ Symbol  src=[7,8)  text="="
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="<"
-   ├─ Common  src=[10,11)  text="T"
-   ├─ Symbol  src=[11,12)  text=">"
-   ├─ Symbol  src=[12,13)  text="("
-   ├─ Common  src=[13,14)  text="a"
-   ├─ Symbol  src=[14,15)  text=":"
-   ├─ WrapSymbol  src=[15,16)  text=" "
-   ├─ Common  src=[16,17)  text="T"
-   ├─ Symbol  src=[17,18)  text=")"
-   ├─ WrapSymbol  src=[18,19)  text=" "
-   ├─ Symbol  src=[19,21)  text="=>"
-   └─ WrapSymbol  src=[21,22)  text=" "
+   └─ FunctionTypeShape  pos=8  src=[9,21)
+      ├─ TypeParameterShape  pos=10  src=[10,11)
+      │  └─ IdentifierShape  pos=10  src=[10,11)  text="T"
+      ├─ ParameterShape  pos=13  src=[13,17)
+      │  ├─ IdentifierShape  pos=13  src=[13,14)  text="a"
+      │  └─ TypeReferenceShape  pos=15  src=[16,17)
+      │     └─ IdentifierShape  pos=15  src=[16,17)  text="T"
+      └─ ReturnTypeContextShape  pos=18  src=[21,21)
+         └─ WrapSymbol  src=[21,22)  text=" "
 ```
 
 ## [char 22] `"T"`
@@ -319,21 +309,16 @@ SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    ├─ WrapSymbol  src=[6,7)  text=" "
-   ├─ Symbol  src=[7,8)  text="="
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="<"
-   ├─ Common  src=[10,11)  text="T"
-   ├─ Symbol  src=[11,12)  text=">"
-   ├─ Symbol  src=[12,13)  text="("
-   ├─ Common  src=[13,14)  text="a"
-   ├─ Symbol  src=[14,15)  text=":"
-   ├─ WrapSymbol  src=[15,16)  text=" "
-   ├─ Common  src=[16,17)  text="T"
-   ├─ Symbol  src=[17,18)  text=")"
-   ├─ WrapSymbol  src=[18,19)  text=" "
-   ├─ Symbol  src=[19,21)  text="=>"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ Common  src=[22,23)  text="T"
+   └─ FunctionTypeShape  pos=8  src=[9,21)
+      ├─ TypeParameterShape  pos=10  src=[10,11)
+      │  └─ IdentifierShape  pos=10  src=[10,11)  text="T"
+      ├─ ParameterShape  pos=13  src=[13,17)
+      │  ├─ IdentifierShape  pos=13  src=[13,14)  text="a"
+      │  └─ TypeReferenceShape  pos=15  src=[16,17)
+      │     └─ IdentifierShape  pos=15  src=[16,17)  text="T"
+      └─ ReturnTypeContextShape  pos=18  src=[21,21)
+         ├─ WrapSymbol  src=[21,22)  text=" "
+         └─ Common  src=[22,23)  text="T"
 ```
 
 ## [char 23] `"\n"`
@@ -343,22 +328,17 @@ SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    ├─ WrapSymbol  src=[6,7)  text=" "
-   ├─ Symbol  src=[7,8)  text="="
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="<"
-   ├─ Common  src=[10,11)  text="T"
-   ├─ Symbol  src=[11,12)  text=">"
-   ├─ Symbol  src=[12,13)  text="("
-   ├─ Common  src=[13,14)  text="a"
-   ├─ Symbol  src=[14,15)  text=":"
-   ├─ WrapSymbol  src=[15,16)  text=" "
-   ├─ Common  src=[16,17)  text="T"
-   ├─ Symbol  src=[17,18)  text=")"
-   ├─ WrapSymbol  src=[18,19)  text=" "
-   ├─ Symbol  src=[19,21)  text="=>"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,23)  text="T"
-   └─ WrapSymbol  src=[23,24)  text="\n"
+   └─ FunctionTypeShape  pos=8  src=[9,21)
+      ├─ TypeParameterShape  pos=10  src=[10,11)
+      │  └─ IdentifierShape  pos=10  src=[10,11)  text="T"
+      ├─ ParameterShape  pos=13  src=[13,17)
+      │  ├─ IdentifierShape  pos=13  src=[13,14)  text="a"
+      │  └─ TypeReferenceShape  pos=15  src=[16,17)
+      │     └─ IdentifierShape  pos=15  src=[16,17)  text="T"
+      └─ ReturnTypeContextShape  pos=18  src=[21,21)
+         ├─ WrapSymbol  src=[21,22)  text=" "
+         ├─ Common  src=[22,23)  text="T"
+         └─ WrapSymbol  src=[23,24)  text="\n"
 ```
 
 ## [EOF]

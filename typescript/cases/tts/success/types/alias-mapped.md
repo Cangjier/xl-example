@@ -638,25 +638,17 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Symbol  src=[12,13)  text="{"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Symbol  src=[14,15)  text="["
-   ├─ Common  src=[15,16)  text="K"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,19)  text="in"
-   ├─ WrapSymbol  src=[19,20)  text=" "
-   ├─ Common  src=[20,25)  text="keyof"
-   ├─ WrapSymbol  src=[25,26)  text=" "
-   ├─ Common  src=[26,27)  text="T"
-   ├─ Symbol  src=[27,28)  text="]"
-   ├─ Symbol  src=[28,29)  text=":"
-   ├─ WrapSymbol  src=[29,30)  text=" "
-   ├─ Common  src=[30,31)  text="T"
-   ├─ Symbol  src=[31,32)  text="["
-   ├─ Common  src=[32,33)  text="K"
-   ├─ Symbol  src=[33,34)  text="]"
-   ├─ WrapSymbol  src=[34,35)  text=" "
-   └─ Symbol  src=[35,36)  text="}"
+   └─ MappedTypeShape  pos=11  src=[12,36)
+      ├─ TypeParameterShape  pos=15  src=[15,27)
+      │  ├─ IdentifierShape  pos=15  src=[15,16)  text="K"
+      │  └─ TypeOperatorShape  pos=19  src=[20,27)
+      │     └─ TypeReferenceShape  pos=25  src=[26,27)
+      │        └─ IdentifierShape  pos=25  src=[26,27)  text="T"
+      └─ IndexedAccessTypeShape  pos=29  src=[30,34)
+         ├─ TypeReferenceShape  pos=29  src=[30,31)
+         │  └─ IdentifierShape  pos=29  src=[30,31)  text="T"
+         └─ TypeReferenceShape  pos=32  src=[32,33)
+            └─ IdentifierShape  pos=32  src=[32,33)  text="K"
 ```
 
 ## [char 36] `"\n"`
@@ -670,25 +662,17 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Symbol  src=[12,13)  text="{"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Symbol  src=[14,15)  text="["
-   ├─ Common  src=[15,16)  text="K"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,19)  text="in"
-   ├─ WrapSymbol  src=[19,20)  text=" "
-   ├─ Common  src=[20,25)  text="keyof"
-   ├─ WrapSymbol  src=[25,26)  text=" "
-   ├─ Common  src=[26,27)  text="T"
-   ├─ Symbol  src=[27,28)  text="]"
-   ├─ Symbol  src=[28,29)  text=":"
-   ├─ WrapSymbol  src=[29,30)  text=" "
-   ├─ Common  src=[30,31)  text="T"
-   ├─ Symbol  src=[31,32)  text="["
-   ├─ Common  src=[32,33)  text="K"
-   ├─ Symbol  src=[33,34)  text="]"
-   ├─ WrapSymbol  src=[34,35)  text=" "
-   ├─ Symbol  src=[35,36)  text="}"
+   ├─ MappedTypeShape  pos=11  src=[12,36)
+   │  ├─ TypeParameterShape  pos=15  src=[15,27)
+   │  │  ├─ IdentifierShape  pos=15  src=[15,16)  text="K"
+   │  │  └─ TypeOperatorShape  pos=19  src=[20,27)
+   │  │     └─ TypeReferenceShape  pos=25  src=[26,27)
+   │  │        └─ IdentifierShape  pos=25  src=[26,27)  text="T"
+   │  └─ IndexedAccessTypeShape  pos=29  src=[30,34)
+   │     ├─ TypeReferenceShape  pos=29  src=[30,31)
+   │     │  └─ IdentifierShape  pos=29  src=[30,31)  text="T"
+   │     └─ TypeReferenceShape  pos=32  src=[32,33)
+   │        └─ IdentifierShape  pos=32  src=[32,33)  text="K"
    └─ WrapSymbol  src=[36,37)  text="\n"
 ```
 

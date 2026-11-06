@@ -239,12 +239,10 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   └─ Symbol  src=[19,20)  text=","
+   └─ TupleTypeShape  pos=8  src=[9,...)
+      └─ NamedTupleMemberShape  pos=10  src=[10,19)
+         ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+         └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
 ```
 
 ## [char 20] `" "`
@@ -256,13 +254,11 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   ├─ Symbol  src=[19,20)  text=","
-   └─ WrapSymbol  src=[20,21)  text=" "
+   └─ TupleTypeShape  pos=8  src=[9,...)
+      ├─ NamedTupleMemberShape  pos=10  src=[10,19)
+      │  ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+      │  └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
+      └─ WrapSymbol  src=[20,21)  text=" "
 ```
 
 ## [char 21] `"b"`
@@ -274,14 +270,12 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   ├─ Symbol  src=[19,20)  text=","
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   └─ Common  src=[21,22)  text="b"
+   └─ TupleTypeShape  pos=8  src=[9,...)
+      ├─ NamedTupleMemberShape  pos=10  src=[10,19)
+      │  ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+      │  └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
+      ├─ WrapSymbol  src=[20,21)  text=" "
+      └─ Common  src=[21,22)  text="b"
 ```
 
 ## [char 22] `":"`
@@ -293,15 +287,13 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   ├─ Symbol  src=[19,20)  text=","
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="b"
-   └─ Symbol  src=[22,23)  text=":"
+   └─ TupleTypeShape  pos=8  src=[9,...)
+      ├─ NamedTupleMemberShape  pos=10  src=[10,19)
+      │  ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+      │  └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
+      ├─ WrapSymbol  src=[20,21)  text=" "
+      ├─ Common  src=[21,22)  text="b"
+      └─ Symbol  src=[22,23)  text=":"
 ```
 
 ## [char 23] `" "`
@@ -313,16 +305,14 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   ├─ Symbol  src=[19,20)  text=","
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="b"
-   ├─ Symbol  src=[22,23)  text=":"
-   └─ WrapSymbol  src=[23,24)  text=" "
+   └─ TupleTypeShape  pos=8  src=[9,...)
+      ├─ NamedTupleMemberShape  pos=10  src=[10,19)
+      │  ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+      │  └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
+      ├─ WrapSymbol  src=[20,21)  text=" "
+      ├─ Common  src=[21,22)  text="b"
+      ├─ Symbol  src=[22,23)  text=":"
+      └─ WrapSymbol  src=[23,24)  text=" "
 ```
 
 ## [char 24] `"n"`
@@ -334,17 +324,15 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   ├─ Symbol  src=[19,20)  text=","
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="b"
-   ├─ Symbol  src=[22,23)  text=":"
-   ├─ WrapSymbol  src=[23,24)  text=" "
-   └─ Common  src=[24,25)  text="n"
+   └─ TupleTypeShape  pos=8  src=[9,...)
+      ├─ NamedTupleMemberShape  pos=10  src=[10,19)
+      │  ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+      │  └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
+      ├─ WrapSymbol  src=[20,21)  text=" "
+      ├─ Common  src=[21,22)  text="b"
+      ├─ Symbol  src=[22,23)  text=":"
+      ├─ WrapSymbol  src=[23,24)  text=" "
+      └─ Common  src=[24,25)  text="n"
 ```
 
 ## [char 25] `"u"`
@@ -356,17 +344,15 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   ├─ Symbol  src=[19,20)  text=","
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="b"
-   ├─ Symbol  src=[22,23)  text=":"
-   ├─ WrapSymbol  src=[23,24)  text=" "
-   └─ Common  src=[24,26)  text="nu"
+   └─ TupleTypeShape  pos=8  src=[9,...)
+      ├─ NamedTupleMemberShape  pos=10  src=[10,19)
+      │  ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+      │  └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
+      ├─ WrapSymbol  src=[20,21)  text=" "
+      ├─ Common  src=[21,22)  text="b"
+      ├─ Symbol  src=[22,23)  text=":"
+      ├─ WrapSymbol  src=[23,24)  text=" "
+      └─ Common  src=[24,26)  text="nu"
 ```
 
 ## [char 26] `"m"`
@@ -378,17 +364,15 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   ├─ Symbol  src=[19,20)  text=","
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="b"
-   ├─ Symbol  src=[22,23)  text=":"
-   ├─ WrapSymbol  src=[23,24)  text=" "
-   └─ Common  src=[24,27)  text="num"
+   └─ TupleTypeShape  pos=8  src=[9,...)
+      ├─ NamedTupleMemberShape  pos=10  src=[10,19)
+      │  ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+      │  └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
+      ├─ WrapSymbol  src=[20,21)  text=" "
+      ├─ Common  src=[21,22)  text="b"
+      ├─ Symbol  src=[22,23)  text=":"
+      ├─ WrapSymbol  src=[23,24)  text=" "
+      └─ Common  src=[24,27)  text="num"
 ```
 
 ## [char 27] `"b"`
@@ -400,17 +384,15 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   ├─ Symbol  src=[19,20)  text=","
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="b"
-   ├─ Symbol  src=[22,23)  text=":"
-   ├─ WrapSymbol  src=[23,24)  text=" "
-   └─ Common  src=[24,28)  text="numb"
+   └─ TupleTypeShape  pos=8  src=[9,...)
+      ├─ NamedTupleMemberShape  pos=10  src=[10,19)
+      │  ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+      │  └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
+      ├─ WrapSymbol  src=[20,21)  text=" "
+      ├─ Common  src=[21,22)  text="b"
+      ├─ Symbol  src=[22,23)  text=":"
+      ├─ WrapSymbol  src=[23,24)  text=" "
+      └─ Common  src=[24,28)  text="numb"
 ```
 
 ## [char 28] `"e"`
@@ -422,17 +404,15 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   ├─ Symbol  src=[19,20)  text=","
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="b"
-   ├─ Symbol  src=[22,23)  text=":"
-   ├─ WrapSymbol  src=[23,24)  text=" "
-   └─ Common  src=[24,29)  text="numbe"
+   └─ TupleTypeShape  pos=8  src=[9,...)
+      ├─ NamedTupleMemberShape  pos=10  src=[10,19)
+      │  ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+      │  └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
+      ├─ WrapSymbol  src=[20,21)  text=" "
+      ├─ Common  src=[21,22)  text="b"
+      ├─ Symbol  src=[22,23)  text=":"
+      ├─ WrapSymbol  src=[23,24)  text=" "
+      └─ Common  src=[24,29)  text="numbe"
 ```
 
 ## [char 29] `"r"`
@@ -444,17 +424,15 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   ├─ Symbol  src=[19,20)  text=","
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="b"
-   ├─ Symbol  src=[22,23)  text=":"
-   ├─ WrapSymbol  src=[23,24)  text=" "
-   └─ Common  src=[24,30)  text="number"
+   └─ TupleTypeShape  pos=8  src=[9,...)
+      ├─ NamedTupleMemberShape  pos=10  src=[10,19)
+      │  ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+      │  └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
+      ├─ WrapSymbol  src=[20,21)  text=" "
+      ├─ Common  src=[21,22)  text="b"
+      ├─ Symbol  src=[22,23)  text=":"
+      ├─ WrapSymbol  src=[23,24)  text=" "
+      └─ Common  src=[24,30)  text="number"
 ```
 
 ## [char 30] `"]"`
@@ -466,18 +444,13 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   ├─ Symbol  src=[19,20)  text=","
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="b"
-   ├─ Symbol  src=[22,23)  text=":"
-   ├─ WrapSymbol  src=[23,24)  text=" "
-   ├─ Common  src=[24,30)  text="number"
-   └─ Symbol  src=[30,31)  text="]"
+   └─ TupleTypeShape  pos=8  src=[9,31)
+      ├─ NamedTupleMemberShape  pos=10  src=[10,19)
+      │  ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+      │  └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
+      └─ NamedTupleMemberShape  pos=20  src=[21,30)
+         ├─ IdentifierShape  pos=20  src=[21,22)  text="b"
+         └─ NumberKeywordShape  pos=23  src=[24,30)  text="number"
 ```
 
 ## [char 31] `"\n"`
@@ -489,18 +462,13 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="["
-   ├─ Common  src=[10,11)  text="a"
-   ├─ Symbol  src=[11,12)  text=":"
-   ├─ WrapSymbol  src=[12,13)  text=" "
-   ├─ Common  src=[13,19)  text="string"
-   ├─ Symbol  src=[19,20)  text=","
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,22)  text="b"
-   ├─ Symbol  src=[22,23)  text=":"
-   ├─ WrapSymbol  src=[23,24)  text=" "
-   ├─ Common  src=[24,30)  text="number"
-   ├─ Symbol  src=[30,31)  text="]"
+   ├─ TupleTypeShape  pos=8  src=[9,31)
+   │  ├─ NamedTupleMemberShape  pos=10  src=[10,19)
+   │  │  ├─ IdentifierShape  pos=10  src=[10,11)  text="a"
+   │  │  └─ StringKeywordShape  pos=12  src=[13,19)  text="string"
+   │  └─ NamedTupleMemberShape  pos=20  src=[21,30)
+   │     ├─ IdentifierShape  pos=20  src=[21,22)  text="b"
+   │     └─ NumberKeywordShape  pos=23  src=[24,30)  text="number"
    └─ WrapSymbol  src=[31,32)  text="\n"
 ```
 
