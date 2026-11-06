@@ -204,9 +204,9 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,14)  text="keyof"
-   ├─ WrapSymbol  src=[14,15)  text=" "
-   ├─ Common  src=[15,18)  text="Foo"
+   ├─ TypeOperatorShape  pos=8  src=[9,18)
+   │  └─ TypeReferenceShape  pos=14  src=[15,18)
+   │     └─ IdentifierShape  pos=14  src=[15,18)  text="Foo"
    └─ WrapSymbol  src=[18,19)  text="\n"
 ```
 

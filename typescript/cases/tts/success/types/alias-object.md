@@ -279,14 +279,10 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="{"
-   ├─ WrapSymbol  src=[10,11)  text=" "
-   ├─ Common  src=[11,12)  text="a"
-   ├─ Symbol  src=[12,13)  text=":"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,20)  text="string"
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   └─ Symbol  src=[21,22)  text="}"
+   └─ TypeLiteralShape  pos=8  src=[9,22)
+      └─ PropertySignatureShape  pos=10  src=[11,20)
+         ├─ IdentifierShape  pos=10  src=[11,12)  text="a"
+         └─ StringKeywordShape  pos=13  src=[14,20)  text="string"
 ```
 
 ## [char 22] `"\n"`
@@ -298,14 +294,10 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="{"
-   ├─ WrapSymbol  src=[10,11)  text=" "
-   ├─ Common  src=[11,12)  text="a"
-   ├─ Symbol  src=[12,13)  text=":"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,20)  text="string"
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Symbol  src=[21,22)  text="}"
+   ├─ TypeLiteralShape  pos=8  src=[9,22)
+   │  └─ PropertySignatureShape  pos=10  src=[11,20)
+   │     ├─ IdentifierShape  pos=10  src=[11,12)  text="a"
+   │     └─ StringKeywordShape  pos=13  src=[14,20)  text="string"
    └─ WrapSymbol  src=[22,23)  text="\n"
 ```
 

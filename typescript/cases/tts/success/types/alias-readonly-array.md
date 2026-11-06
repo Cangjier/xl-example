@@ -297,11 +297,9 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,17)  text="readonly"
-   ├─ WrapSymbol  src=[17,18)  text=" "
-   ├─ Common  src=[18,24)  text="string"
-   ├─ Symbol  src=[24,25)  text="["
-   └─ Symbol  src=[25,26)  text="]"
+   └─ TypeOperatorShape  pos=8  src=[9,26)
+      └─ ArrayTypeShape  pos=17  src=[18,26)
+         └─ StringKeywordShape  pos=17  src=[18,24)  text="string"
 ```
 
 ## [char 26] `"\n"`
@@ -313,11 +311,9 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,17)  text="readonly"
-   ├─ WrapSymbol  src=[17,18)  text=" "
-   ├─ Common  src=[18,24)  text="string"
-   ├─ Symbol  src=[24,25)  text="["
-   ├─ Symbol  src=[25,26)  text="]"
+   ├─ TypeOperatorShape  pos=8  src=[9,26)
+   │  └─ ArrayTypeShape  pos=17  src=[18,26)
+   │     └─ StringKeywordShape  pos=17  src=[18,24)  text="string"
    └─ WrapSymbol  src=[26,27)  text="\n"
 ```
 

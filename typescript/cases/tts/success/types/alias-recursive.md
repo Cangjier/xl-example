@@ -381,18 +381,14 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="{"
-   ├─ WrapSymbol  src=[10,11)  text=" "
-   ├─ Common  src=[11,15)  text="next"
-   ├─ Symbol  src=[15,16)  text=":"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,18)  text="A"
-   ├─ WrapSymbol  src=[18,19)  text=" "
-   ├─ Symbol  src=[19,20)  text="|"
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,25)  text="null"
-   ├─ WrapSymbol  src=[25,26)  text=" "
-   └─ Symbol  src=[26,27)  text="}"
+   └─ TypeLiteralShape  pos=8  src=[9,27)
+      └─ PropertySignatureShape  pos=10  src=[11,25)
+         ├─ IdentifierShape  pos=10  src=[11,15)  text="next"
+         └─ UnionTypeShape  pos=16  src=[17,25)
+            ├─ TypeReferenceShape  pos=16  src=[17,18)
+            │  └─ IdentifierShape  pos=16  src=[17,18)  text="A"
+            └─ LiteralTypeShape  pos=20  src=[21,25)
+               └─ NullKeywordShape  pos=20  src=[21,25)  text="null"
 ```
 
 ## [char 27] `"\n"`
@@ -404,18 +400,14 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="{"
-   ├─ WrapSymbol  src=[10,11)  text=" "
-   ├─ Common  src=[11,15)  text="next"
-   ├─ Symbol  src=[15,16)  text=":"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,18)  text="A"
-   ├─ WrapSymbol  src=[18,19)  text=" "
-   ├─ Symbol  src=[19,20)  text="|"
-   ├─ WrapSymbol  src=[20,21)  text=" "
-   ├─ Common  src=[21,25)  text="null"
-   ├─ WrapSymbol  src=[25,26)  text=" "
-   ├─ Symbol  src=[26,27)  text="}"
+   ├─ TypeLiteralShape  pos=8  src=[9,27)
+   │  └─ PropertySignatureShape  pos=10  src=[11,25)
+   │     ├─ IdentifierShape  pos=10  src=[11,15)  text="next"
+   │     └─ UnionTypeShape  pos=16  src=[17,25)
+   │        ├─ TypeReferenceShape  pos=16  src=[17,18)
+   │        │  └─ IdentifierShape  pos=16  src=[17,18)  text="A"
+   │        └─ LiteralTypeShape  pos=20  src=[21,25)
+   │           └─ NullKeywordShape  pos=20  src=[21,25)  text="null"
    └─ WrapSymbol  src=[27,28)  text="\n"
 ```
 

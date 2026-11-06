@@ -188,9 +188,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,15)  text="typeof"
-   ├─ WrapSymbol  src=[15,16)  text=" "
-   ├─ Common  src=[16,17)  text="x"
+   ├─ TypeQueryShape  pos=8  src=[9,17)
+   │  └─ IdentifierShape  pos=15  src=[16,17)  text="x"
    └─ WrapSymbol  src=[17,18)  text="\n"
 ```
 

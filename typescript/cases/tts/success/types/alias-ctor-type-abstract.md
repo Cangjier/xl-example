@@ -323,16 +323,9 @@ SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    ├─ WrapSymbol  src=[6,7)  text=" "
-   ├─ Symbol  src=[7,8)  text="="
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,17)  text="abstract"
-   ├─ WrapSymbol  src=[17,18)  text=" "
-   ├─ Common  src=[18,21)  text="new"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Symbol  src=[22,23)  text="("
-   ├─ Symbol  src=[23,24)  text=")"
-   ├─ WrapSymbol  src=[24,25)  text=" "
-   └─ Symbol  src=[25,27)  text="=>"
+   └─ ConstructorTypeShape  pos=8  src=[9,27)
+      ├─ AbstractKeywordShape  pos=8  src=[9,17)  text="abstract"
+      └─ ReturnTypeContextShape  pos=24  src=[27,27)
 ```
 
 ## [char 27] `" "`
@@ -342,17 +335,10 @@ SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    ├─ WrapSymbol  src=[6,7)  text=" "
-   ├─ Symbol  src=[7,8)  text="="
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,17)  text="abstract"
-   ├─ WrapSymbol  src=[17,18)  text=" "
-   ├─ Common  src=[18,21)  text="new"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Symbol  src=[22,23)  text="("
-   ├─ Symbol  src=[23,24)  text=")"
-   ├─ WrapSymbol  src=[24,25)  text=" "
-   ├─ Symbol  src=[25,27)  text="=>"
-   └─ WrapSymbol  src=[27,28)  text=" "
+   └─ ConstructorTypeShape  pos=8  src=[9,27)
+      ├─ AbstractKeywordShape  pos=8  src=[9,17)  text="abstract"
+      └─ ReturnTypeContextShape  pos=24  src=[27,27)
+         └─ WrapSymbol  src=[27,28)  text=" "
 ```
 
 ## [char 28] `"F"`
@@ -362,18 +348,11 @@ SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    ├─ WrapSymbol  src=[6,7)  text=" "
-   ├─ Symbol  src=[7,8)  text="="
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,17)  text="abstract"
-   ├─ WrapSymbol  src=[17,18)  text=" "
-   ├─ Common  src=[18,21)  text="new"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Symbol  src=[22,23)  text="("
-   ├─ Symbol  src=[23,24)  text=")"
-   ├─ WrapSymbol  src=[24,25)  text=" "
-   ├─ Symbol  src=[25,27)  text="=>"
-   ├─ WrapSymbol  src=[27,28)  text=" "
-   └─ Common  src=[28,29)  text="F"
+   └─ ConstructorTypeShape  pos=8  src=[9,27)
+      ├─ AbstractKeywordShape  pos=8  src=[9,17)  text="abstract"
+      └─ ReturnTypeContextShape  pos=24  src=[27,27)
+         ├─ WrapSymbol  src=[27,28)  text=" "
+         └─ Common  src=[28,29)  text="F"
 ```
 
 ## [char 29] `"o"`
@@ -383,18 +362,11 @@ SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    ├─ WrapSymbol  src=[6,7)  text=" "
-   ├─ Symbol  src=[7,8)  text="="
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,17)  text="abstract"
-   ├─ WrapSymbol  src=[17,18)  text=" "
-   ├─ Common  src=[18,21)  text="new"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Symbol  src=[22,23)  text="("
-   ├─ Symbol  src=[23,24)  text=")"
-   ├─ WrapSymbol  src=[24,25)  text=" "
-   ├─ Symbol  src=[25,27)  text="=>"
-   ├─ WrapSymbol  src=[27,28)  text=" "
-   └─ Common  src=[28,30)  text="Fo"
+   └─ ConstructorTypeShape  pos=8  src=[9,27)
+      ├─ AbstractKeywordShape  pos=8  src=[9,17)  text="abstract"
+      └─ ReturnTypeContextShape  pos=24  src=[27,27)
+         ├─ WrapSymbol  src=[27,28)  text=" "
+         └─ Common  src=[28,30)  text="Fo"
 ```
 
 ## [char 30] `"o"`
@@ -404,18 +376,11 @@ SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    ├─ WrapSymbol  src=[6,7)  text=" "
-   ├─ Symbol  src=[7,8)  text="="
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,17)  text="abstract"
-   ├─ WrapSymbol  src=[17,18)  text=" "
-   ├─ Common  src=[18,21)  text="new"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Symbol  src=[22,23)  text="("
-   ├─ Symbol  src=[23,24)  text=")"
-   ├─ WrapSymbol  src=[24,25)  text=" "
-   ├─ Symbol  src=[25,27)  text="=>"
-   ├─ WrapSymbol  src=[27,28)  text=" "
-   └─ Common  src=[28,31)  text="Foo"
+   └─ ConstructorTypeShape  pos=8  src=[9,27)
+      ├─ AbstractKeywordShape  pos=8  src=[9,17)  text="abstract"
+      └─ ReturnTypeContextShape  pos=24  src=[27,27)
+         ├─ WrapSymbol  src=[27,28)  text=" "
+         └─ Common  src=[28,31)  text="Foo"
 ```
 
 ## [char 31] `"\n"`
@@ -425,19 +390,12 @@ SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    ├─ WrapSymbol  src=[6,7)  text=" "
-   ├─ Symbol  src=[7,8)  text="="
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,17)  text="abstract"
-   ├─ WrapSymbol  src=[17,18)  text=" "
-   ├─ Common  src=[18,21)  text="new"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Symbol  src=[22,23)  text="("
-   ├─ Symbol  src=[23,24)  text=")"
-   ├─ WrapSymbol  src=[24,25)  text=" "
-   ├─ Symbol  src=[25,27)  text="=>"
-   ├─ WrapSymbol  src=[27,28)  text=" "
-   ├─ Common  src=[28,31)  text="Foo"
-   └─ WrapSymbol  src=[31,32)  text="\n"
+   └─ ConstructorTypeShape  pos=8  src=[9,27)
+      ├─ AbstractKeywordShape  pos=8  src=[9,17)  text="abstract"
+      └─ ReturnTypeContextShape  pos=24  src=[27,27)
+         ├─ WrapSymbol  src=[27,28)  text=" "
+         ├─ Common  src=[28,31)  text="Foo"
+         └─ WrapSymbol  src=[31,32)  text="\n"
 ```
 
 ## [EOF]

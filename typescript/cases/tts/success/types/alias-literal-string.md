@@ -114,8 +114,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   └─ String  src=[9,12)
-      └─ ConstString  src=[10,11)  text="a"
+   └─ LiteralTypeShape  pos=8  src=[9,12)
+      └─ StringLiteralShape  pos=8  src=[9,12)  text="a"
 ```
 
 ## [char 12] `"\n"`
@@ -127,8 +127,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ String  src=[9,12)
-   │  └─ ConstString  src=[10,11)  text="a"
+   ├─ LiteralTypeShape  pos=8  src=[9,12)
+   │  └─ StringLiteralShape  pos=8  src=[9,12)  text="a"
    └─ WrapSymbol  src=[12,13)  text="\n"
 ```
 

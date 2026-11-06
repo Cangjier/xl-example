@@ -666,21 +666,13 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="{"
-   ├─ WrapSymbol  src=[10,11)  text=" "
-   ├─ Common  src=[11,19)  text="readonly"
-   ├─ WrapSymbol  src=[19,20)  text=" "
-   ├─ Symbol  src=[20,21)  text="["
-   ├─ Common  src=[21,22)  text="k"
-   ├─ Symbol  src=[22,23)  text=":"
-   ├─ WrapSymbol  src=[23,24)  text=" "
-   ├─ Common  src=[24,30)  text="string"
-   ├─ Symbol  src=[30,31)  text="]"
-   ├─ Symbol  src=[31,32)  text=":"
-   ├─ WrapSymbol  src=[32,33)  text=" "
-   ├─ Common  src=[33,39)  text="number"
-   ├─ WrapSymbol  src=[39,40)  text=" "
-   └─ Symbol  src=[40,41)  text="}"
+   └─ TypeLiteralShape  pos=8  src=[9,41)
+      └─ IndexSignatureShape  pos=10  src=[11,39)
+         ├─ ReadonlyKeywordShape  pos=10  src=[11,19)  text="readonly"
+         ├─ ParameterShape  pos=21  src=[21,30)
+         │  ├─ IdentifierShape  pos=21  src=[21,22)  text="k"
+         │  └─ StringKeywordShape  pos=23  src=[24,30)  text="string"
+         └─ NumberKeywordShape  pos=32  src=[33,39)  text="number"
 ```
 
 ## [char 41] `"\n"`
@@ -692,21 +684,13 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="{"
-   ├─ WrapSymbol  src=[10,11)  text=" "
-   ├─ Common  src=[11,19)  text="readonly"
-   ├─ WrapSymbol  src=[19,20)  text=" "
-   ├─ Symbol  src=[20,21)  text="["
-   ├─ Common  src=[21,22)  text="k"
-   ├─ Symbol  src=[22,23)  text=":"
-   ├─ WrapSymbol  src=[23,24)  text=" "
-   ├─ Common  src=[24,30)  text="string"
-   ├─ Symbol  src=[30,31)  text="]"
-   ├─ Symbol  src=[31,32)  text=":"
-   ├─ WrapSymbol  src=[32,33)  text=" "
-   ├─ Common  src=[33,39)  text="number"
-   ├─ WrapSymbol  src=[39,40)  text=" "
-   ├─ Symbol  src=[40,41)  text="}"
+   ├─ TypeLiteralShape  pos=8  src=[9,41)
+   │  └─ IndexSignatureShape  pos=10  src=[11,39)
+   │     ├─ ReadonlyKeywordShape  pos=10  src=[11,19)  text="readonly"
+   │     ├─ ParameterShape  pos=21  src=[21,30)
+   │     │  ├─ IdentifierShape  pos=21  src=[21,22)  text="k"
+   │     │  └─ StringKeywordShape  pos=23  src=[24,30)  text="string"
+   │     └─ NumberKeywordShape  pos=32  src=[33,39)  text="number"
    └─ WrapSymbol  src=[41,42)  text="\n"
 ```
 

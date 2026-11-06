@@ -262,11 +262,11 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   └─ String  src=[9,22)
-      ├─ ConstString  src=[10,11)  text="a"
-      ├─ InterpolationString  src=[12,20)
-      │  └─ Common  src=[13,19)  text="string"
-      └─ ConstString  src=[20,21)  text="b"
+   └─ TemplateLiteralTypeShape  pos=8  src=[9,22)
+      ├─ TemplateHeadShape  pos=8  src=[9,13)
+      └─ TemplateLiteralTypeSpanShape  pos=13  src=[13,22)
+         ├─ StringKeywordShape  pos=13  src=[13,19)  text="string"
+         └─ TemplateTailShape  pos=19  src=[19,22)
 ```
 
 ## [char 22] `"\n"`
@@ -278,11 +278,11 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ String  src=[9,22)
-   │  ├─ ConstString  src=[10,11)  text="a"
-   │  ├─ InterpolationString  src=[12,20)
-   │  │  └─ Common  src=[13,19)  text="string"
-   │  └─ ConstString  src=[20,21)  text="b"
+   ├─ TemplateLiteralTypeShape  pos=8  src=[9,22)
+   │  ├─ TemplateHeadShape  pos=8  src=[9,13)
+   │  └─ TemplateLiteralTypeSpanShape  pos=13  src=[13,22)
+   │     ├─ StringKeywordShape  pos=13  src=[13,19)  text="string"
+   │     └─ TemplateTailShape  pos=19  src=[19,22)
    └─ WrapSymbol  src=[22,23)  text="\n"
 ```
 

@@ -487,20 +487,13 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="{"
-   ├─ WrapSymbol  src=[10,11)  text=" "
-   ├─ Common  src=[11,12)  text="m"
-   ├─ Symbol  src=[12,13)  text="("
-   ├─ Common  src=[13,14)  text="a"
-   ├─ Symbol  src=[14,15)  text=":"
-   ├─ WrapSymbol  src=[15,16)  text=" "
-   ├─ Common  src=[16,22)  text="string"
-   ├─ Symbol  src=[22,23)  text=")"
-   ├─ Symbol  src=[23,24)  text=":"
-   ├─ WrapSymbol  src=[24,25)  text=" "
-   ├─ Common  src=[25,29)  text="void"
-   ├─ WrapSymbol  src=[29,30)  text=" "
-   └─ Symbol  src=[30,31)  text="}"
+   └─ TypeLiteralShape  pos=8  src=[9,31)
+      └─ MethodSignatureShape  pos=10  src=[11,29)
+         ├─ IdentifierShape  pos=10  src=[11,12)  text="m"
+         ├─ ParameterShape  pos=13  src=[13,22)
+         │  ├─ IdentifierShape  pos=13  src=[13,14)  text="a"
+         │  └─ StringKeywordShape  pos=15  src=[16,22)  text="string"
+         └─ VoidKeywordShape  pos=24  src=[25,29)  text="void"
 ```
 
 ## [char 31] `"\n"`
@@ -512,20 +505,13 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="{"
-   ├─ WrapSymbol  src=[10,11)  text=" "
-   ├─ Common  src=[11,12)  text="m"
-   ├─ Symbol  src=[12,13)  text="("
-   ├─ Common  src=[13,14)  text="a"
-   ├─ Symbol  src=[14,15)  text=":"
-   ├─ WrapSymbol  src=[15,16)  text=" "
-   ├─ Common  src=[16,22)  text="string"
-   ├─ Symbol  src=[22,23)  text=")"
-   ├─ Symbol  src=[23,24)  text=":"
-   ├─ WrapSymbol  src=[24,25)  text=" "
-   ├─ Common  src=[25,29)  text="void"
-   ├─ WrapSymbol  src=[29,30)  text=" "
-   ├─ Symbol  src=[30,31)  text="}"
+   ├─ TypeLiteralShape  pos=8  src=[9,31)
+   │  └─ MethodSignatureShape  pos=10  src=[11,29)
+   │     ├─ IdentifierShape  pos=10  src=[11,12)  text="m"
+   │     ├─ ParameterShape  pos=13  src=[13,22)
+   │     │  ├─ IdentifierShape  pos=13  src=[13,14)  text="a"
+   │     │  └─ StringKeywordShape  pos=15  src=[16,22)  text="string"
+   │     └─ VoidKeywordShape  pos=24  src=[25,29)  text="void"
    └─ WrapSymbol  src=[31,32)  text="\n"
 ```
 

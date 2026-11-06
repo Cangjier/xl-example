@@ -269,13 +269,10 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,15)  text="import"
-   ├─ Symbol  src=[15,16)  text="("
-   ├─ String  src=[16,19)
-   │  └─ ConstString  src=[17,18)  text="m"
-   ├─ Symbol  src=[19,20)  text=")"
-   ├─ Symbol  src=[20,21)  text="."
-   ├─ Common  src=[21,22)  text="T"
+   ├─ ImportTypeShape  pos=8  src=[9,22)
+   │  ├─ LiteralTypeShape  pos=16  src=[16,19)
+   │  │  └─ StringLiteralShape  pos=16  src=[16,19)  text="m"
+   │  └─ IdentifierShape  pos=21  src=[21,22)  text="T"
    └─ WrapSymbol  src=[22,23)  text="\n"
 ```
 

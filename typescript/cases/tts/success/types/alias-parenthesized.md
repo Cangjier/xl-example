@@ -179,9 +179,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="("
-   ├─ Common  src=[10,16)  text="string"
-   └─ Symbol  src=[16,17)  text=")"
+   └─ ParenthesizedTypeShape  pos=8  src=[9,17)
+      └─ StringKeywordShape  pos=10  src=[10,16)  text="string"
 ```
 
 ## [char 17] `"\n"`
@@ -193,9 +192,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ WrapSymbol  src=[6,7)  text=" "
    ├─ Symbol  src=[7,8)  text="="
    ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Symbol  src=[9,10)  text="("
-   ├─ Common  src=[10,16)  text="string"
-   ├─ Symbol  src=[16,17)  text=")"
+   ├─ ParenthesizedTypeShape  pos=8  src=[9,17)
+   │  └─ StringKeywordShape  pos=10  src=[10,16)  text="string"
    └─ WrapSymbol  src=[17,18)  text="\n"
 ```
 
