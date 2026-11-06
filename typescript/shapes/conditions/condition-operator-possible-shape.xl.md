@@ -65,7 +65,7 @@ if (info === null) {
   throw new Error("ConditionOperatorPossibleShape: 不支持的运算符 " + symbol.TempToString());
 }
 let rootIndex = -1;
-for (let at = 0; at < units.length; at++) {
+for (let at = 0; at <= tokenIndex; at++) {
   const item = units[at];
   if (!item.IsTriviaToken && !item.IsBasicToken) {
     rootIndex = at;

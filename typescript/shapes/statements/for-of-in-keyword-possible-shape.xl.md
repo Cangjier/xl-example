@@ -72,7 +72,8 @@ if (!(unit instanceof Common) || !unit.Closed || !unit.IsAny(["of", "in"])) {
 }
 let expression: Token | null = null;
 let codeCount = 0;
-for (const item of units) {
+for (let at = 0; at <= tokenIndex; at++) {
+  const item = units[at];
   if (item.IsTriviaToken || item === unit) {
     continue;
   }

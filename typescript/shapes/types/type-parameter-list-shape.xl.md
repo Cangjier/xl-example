@@ -36,7 +36,7 @@ if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is("<")) {
 }
 let first = -1;
 let count = 0;
-for (let at = 0; at < units.length; at++) {
+for (let at = 0; at <= tokenIndex; at++) {
   if (units[at].IsTriviaToken) {
     continue;
   }

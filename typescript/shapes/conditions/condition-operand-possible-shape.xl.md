@@ -56,7 +56,8 @@ const tokenIndex = index.Index;
 const common = index.At(tokenIndex) as Common;
 const operand = OperandUtil.FromCommon(common, ItemUtil.PositionOf(units, tokenIndex));
 let root:Token | null = null;
-for (const item of units) {
+for (let at = 0; at <= tokenIndex; at++) {
+  const item = units[at];
   if (!item.IsTriviaToken && !item.IsBasicToken) {
     root = item;
     break;
