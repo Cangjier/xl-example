@@ -7,7 +7,11 @@
 // 同时统计最终树里 CreatedAt - SourceRange.Start > 2 的 IdentifierShape 个数（「迟到标识符」）。
 //
 // 用法:
-//   node typescript/tools/type-coverage.mjs [--json] [--dir <目录>]
+//   node typescript/tools/type-coverage.mjs [--json] [--dir <目录>] [--allow <id1,id2,...>]
+//
+// --allow 是给 CI 用的断言：给定用例 id 集合（用例文件名去掉 .ts，或相对仓库根的路径），
+// 若「兜底用例 ∩ 白名单」非空，打印违规清单并 exit 1，否则 exit 0。
+// 不带 --allow 时输出与退出码与旧版完全一致（默认输出兼容）。
 //
 // 默认遍历 typescript/cases/tts/success。计数器在每个用例前归零，单进程跑完整个目录。
 import fs from "node:fs";
@@ -35,12 +39,32 @@ const { SourceFileShape } = require(path.join(BUILD, "typescript/shapes/files/so
 const { TypeParserApi } = require(path.join(BUILD, "typescript/shapes/types/type-parser-api.js"));
 const { IdentifierShape } = require(path.join(BUILD, "typescript/shapes/names/identifier-shape.js"));
 
+function parseAllowList(value) {
+  const ids = new Set();
+  for (const part of String(value).split(",")) {
+    const id = part.trim();
+    if (id.length > 0) {
+      ids.add(id);
+    }
+  }
+  return ids;
+}
+
 function parseArgs(argv) {
-  const options = { json: false, dir: DEFAULT_DIR };
+  const options = { json: false, dir: DEFAULT_DIR, allow: null };
   for (let at = 0; at < argv.length; at++) {
     const arg = argv[at];
     if (arg === "--json") {
       options.json = true;
+    } else if (arg === "--allow") {
+      const value = argv[++at];
+      if (value === undefined) {
+        console.error("[type-coverage] --allow 需要一个逗号分隔的用例 id 列表");
+        process.exit(2);
+      }
+      options.allow = parseAllowList(value);
+    } else if (arg.startsWith("--allow=")) {
+      options.allow = parseAllowList(arg.slice("--allow=".length));
     } else if (arg === "--dir") {
       const value = argv[++at];
       if (value === undefined) {
@@ -52,7 +76,7 @@ function parseArgs(argv) {
       const value = arg.slice("--dir=".length);
       options.dir = path.isAbsolute(value) ? value : path.resolve(ROOT, value);
     } else if (arg === "--help" || arg === "-h") {
-      console.log("用法: node typescript/tools/type-coverage.mjs [--json] [--dir <目录>]");
+      console.log("用法: node typescript/tools/type-coverage.mjs [--json] [--dir <目录>] [--allow <id1,id2,...>]");
       process.exit(0);
     } else {
       console.error(`[type-coverage] 未知参数: ${arg}`);
@@ -78,6 +102,17 @@ function collectTsFiles(dir) {
   }
   files.sort();
   return files;
+}
+
+// 用例 id：文件名去掉 .ts（与 _coord/probe 的 case id 一致）。
+function caseIdOf(relativePath) {
+  const base = relativePath.slice(relativePath.lastIndexOf("/") + 1);
+  return base.endsWith(".ts") ? base.slice(0, -3) : base;
+}
+
+// 白名单既可以写 id，也可以写相对仓库根的路径，避免 CI 里两种写法互相踩。
+function isAllowed(allow, relativePath) {
+  return allow.has(caseIdOf(relativePath)) || allow.has(relativePath);
 }
 
 // 逐字符推进（与 run.mjs 的 runIncremental 完全一致）。
@@ -212,8 +247,39 @@ function main() {
     maxLateText,
   };
 
+  const allow = options.allow;
+  let violations = [];
+  let allowUnknown = [];
+  if (allow !== null) {
+    const known = new Set();
+    for (const result of cases) {
+      known.add(caseIdOf(result.path));
+      known.add(result.path);
+    }
+    violations = cases.filter((result) => result.fallback > 0 && isAllowed(allow, result.path));
+    allowUnknown = [...allow].filter((id) => !known.has(id));
+  }
+
   if (options.json) {
-    console.log(JSON.stringify({ summary, cases, failures }, null, 2));
+    if (allow === null) {
+      console.log(JSON.stringify({ summary, cases, failures }, null, 2));
+      return;
+    }
+    console.log(JSON.stringify({
+      summary,
+      cases,
+      failures,
+      allow: {
+        ids: [...allow],
+        violationCount: violations.length,
+        violations: violations.map((result) => ({ id: caseIdOf(result.path), path: result.path, fallback: result.fallback })),
+        unknown: allowUnknown,
+        passed: violations.length === 0,
+      },
+    }, null, 2));
+    if (violations.length > 0) {
+      process.exitCode = 1;
+    }
     return;
   }
 
@@ -229,6 +295,22 @@ function main() {
     ` / 迟到标识符 ${summary.lateIdentifiers} (IdentifierShape ${summary.identifiers}, 最多 +${summary.maxLate} ${summary.maxLateText || ""} @ ${summary.maxLateCase})`);
   if (summary.failed > 0) {
     console.log(`失败用例 ${summary.failed} 个（见上面的 ! 行）`);
+  }
+  if (allow !== null) {
+    console.log("");
+    console.log(`[type-coverage] --allow ${allow.size} 个 id：兜底用例命中 ${violations.length} 条`);
+    for (const violation of violations) {
+      console.log(`  ! ${caseIdOf(violation.path)} fallback=${violation.fallback} (${violation.path})`);
+    }
+    if (allowUnknown.length > 0) {
+      console.log(`[type-coverage] --allow 里未匹配任何用例: ${allowUnknown.join(",")}`);
+    }
+    if (violations.length > 0) {
+      console.log("[type-coverage] 结论: FAIL（白名单里仍有兜底用例）");
+      process.exitCode = 1;
+    } else {
+      console.log("[type-coverage] 结论: OK（白名单内无兜底用例）");
+    }
   }
 }
 

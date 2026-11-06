@@ -1,0 +1,489 @@
+{
+  "label": "T0-after",
+  "dir": "typescript/cases/tts/success",
+  "caseCount": 302,
+  "fallbackCount": 23,
+  "cleanCount": 279,
+  "fallbackIds": [
+    "success/types/alias-ctor-type-abstract.ts",
+    "success/types/alias-fn-type-generic.ts",
+    "success/types/alias-fn-type.ts",
+    "success/types/alias-import-type.ts",
+    "success/types/alias-keyof.ts",
+    "success/types/alias-literal-string.ts",
+    "success/types/alias-mapped-modifiers.ts",
+    "success/types/alias-mapped-remap.ts",
+    "success/types/alias-mapped.ts",
+    "success/types/alias-object-call-construct.ts",
+    "success/types/alias-object-index-readonly.ts",
+    "success/types/alias-object-method.ts",
+    "success/types/alias-object-optional-readonly.ts",
+    "success/types/alias-object.ts",
+    "success/types/alias-parenthesized.ts",
+    "success/types/alias-readonly-array.ts",
+    "success/types/alias-recursive.ts",
+    "success/types/alias-template-literal.ts",
+    "success/types/alias-tuple-named.ts",
+    "success/types/alias-tuple-optional.ts",
+    "success/types/alias-tuple-rest.ts",
+    "success/types/alias-tuple.ts",
+    "success/types/alias-typeof-query.ts"
+  ],
+  "fallbackDetail": [
+    {
+      "id": "success/types/alias-ctor-type-abstract.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "constructor",
+        "type-reference"
+      ],
+      "chars": 32
+    },
+    {
+      "id": "success/types/alias-fn-type-generic.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "function",
+        "type-reference"
+      ],
+      "chars": 24
+    },
+    {
+      "id": "success/types/alias-fn-type.ts",
+      "ParseAlias": 0,
+      "ParseCompleteReturnType": 1,
+      "sites": {
+        "TypeAliasDeclarationShape.Close+TypeFunctionIncremental": 1
+      },
+      "forms": [
+        "function"
+      ],
+      "chars": 31
+    },
+    {
+      "id": "success/types/alias-import-type.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "literal"
+      ],
+      "chars": 23
+    },
+    {
+      "id": "success/types/alias-keyof.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "type-operator",
+        "type-reference"
+      ],
+      "chars": 19
+    },
+    {
+      "id": "success/types/alias-literal-string.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "literal"
+      ],
+      "chars": 13
+    },
+    {
+      "id": "success/types/alias-mapped-modifiers.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "indexed-access",
+        "mapped",
+        "type-operator",
+        "type-reference"
+      ],
+      "chars": 49
+    },
+    {
+      "id": "success/types/alias-mapped-remap.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "indexed-access",
+        "mapped",
+        "template-literal",
+        "type-operator",
+        "type-reference"
+      ],
+      "chars": 50
+    },
+    {
+      "id": "success/types/alias-mapped.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "indexed-access",
+        "mapped",
+        "type-operator",
+        "type-reference"
+      ],
+      "chars": 37
+    },
+    {
+      "id": "success/types/alias-object-call-construct.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "object-literal",
+        "type-reference"
+      ],
+      "chars": 55
+    },
+    {
+      "id": "success/types/alias-object-index-readonly.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "object-literal"
+      ],
+      "chars": 42
+    },
+    {
+      "id": "success/types/alias-object-method.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "object-literal"
+      ],
+      "chars": 32
+    },
+    {
+      "id": "success/types/alias-object-optional-readonly.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "object-literal"
+      ],
+      "chars": 33
+    },
+    {
+      "id": "success/types/alias-object.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "object-literal"
+      ],
+      "chars": 23
+    },
+    {
+      "id": "success/types/alias-parenthesized.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "parenthesized"
+      ],
+      "chars": 18
+    },
+    {
+      "id": "success/types/alias-readonly-array.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "array",
+        "type-operator"
+      ],
+      "chars": 27
+    },
+    {
+      "id": "success/types/alias-recursive.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "literal",
+        "object-literal",
+        "type-reference",
+        "union"
+      ],
+      "chars": 28
+    },
+    {
+      "id": "success/types/alias-template-literal.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "template-literal"
+      ],
+      "chars": 23
+    },
+    {
+      "id": "success/types/alias-tuple-named.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "named-tuple",
+        "tuple"
+      ],
+      "chars": 32
+    },
+    {
+      "id": "success/types/alias-tuple-optional.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "optional-type",
+        "tuple"
+      ],
+      "chars": 19
+    },
+    {
+      "id": "success/types/alias-tuple-rest.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "array",
+        "rest-type",
+        "tuple"
+      ],
+      "chars": 23
+    },
+    {
+      "id": "success/types/alias-tuple.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "tuple"
+      ],
+      "chars": 26
+    },
+    {
+      "id": "success/types/alias-typeof-query.ts",
+      "ParseAlias": 1,
+      "ParseCompleteReturnType": 0,
+      "sites": {
+        "TypeAliasDeclarationShape.Close": 1
+      },
+      "forms": [
+        "type-query"
+      ],
+      "chars": 18
+    }
+  ],
+  "formDistribution": {
+    "type-reference": 8,
+    "object-literal": 6,
+    "type-operator": 5,
+    "tuple": 4,
+    "indexed-access": 3,
+    "literal": 3,
+    "mapped": 3,
+    "array": 2,
+    "function": 2,
+    "template-literal": 2,
+    "constructor": 1,
+    "named-tuple": 1,
+    "optional-type": 1,
+    "parenthesized": 1,
+    "rest-type": 1,
+    "type-query": 1,
+    "union": 1
+  },
+  "otherApiCalls": [
+    "ParseAlias",
+    "ParseCompleteReturnType",
+    "ParseCompleteType",
+    "ParseParameterPrefix",
+    "ParseTypeArgumentTail",
+    "ParseTypeParameterOnly",
+    "ParseTypeParameterTail"
+  ],
+  "identifierBaseline": {
+    "total": 677,
+    "deltaHistogram": {
+      "1": 639,
+      "2": 14,
+      "3": 8,
+      "4": 3,
+      "5": 7,
+      "6": 3,
+      "7": 2,
+      "12": 1
+    },
+    "deltaRawHistogram": {
+      "1": 602,
+      "2": 17,
+      "3": 6,
+      "4": 5,
+      "5": 8,
+      "6": 4,
+      "7": 5,
+      "8": 1,
+      "9": 1,
+      "10": 1,
+      "11": 4,
+      "12": 3,
+      "13": 5,
+      "14": 1,
+      "15": 1,
+      "16": 1,
+      "17": 1,
+      "18": 1,
+      "19": 1,
+      "21": 2,
+      "22": 2,
+      "24": 2,
+      "25": 1,
+      "35": 1,
+      "43": 1
+    },
+    "over2Count": 24,
+    "over2RawCount": 58,
+    "over2": [
+      "success/lexical/ident-escape-binding.ts@pos3[start=4,created=10]",
+      "success/lexical/ident-unicode-binding.ts@pos3[start=4,created=8]",
+      "success/lexical/identifier-unicode-escape.ts@pos3[start=4,created=11]",
+      "success/lexical/identifier-unicode-escape.ts@pos20[start=21,created=27]",
+      "success/lexical/identifier-unicode-escape.ts@pos40[start=41,created=48]",
+      "success/lexical/identifier-unicode-escape.ts@pos50[start=51,created=57]",
+      "success/lexical/identifier-unicode-escape.ts@pos62[start=63,created=75]",
+      "success/types/alias-conditional-branch-generic.ts@pos30[start=31,created=36]",
+      "success/types/alias-conditional-branch-generic.ts@pos41[start=42,created=45]",
+      "success/types/alias-conditional-infer.ts@pos21[start=22,created=27]",
+      "success/types/alias-conditional-qualified.ts@pos25[start=25,created=30]",
+      "success/types/alias-ctor-type-abstract.ts@pos27[start=28,created=31]",
+      "success/types/alias-generic-args.ts@pos8[start=9,created=14]",
+      "success/types/alias-generic-nested-tight-close.ts@pos16[start=17,created=22]",
+      "success/types/alias-generic-nested-tight-close.ts@pos23[start=23,created=28]",
+      "success/types/alias-indexed-access.ts@pos8[start=9,created=12]",
+      "success/types/alias-indexed-generic.ts@pos8[start=9,created=12]",
+      "success/types/alias-infer-constraint.ts@pos21[start=22,created=27]",
+      "success/types/alias-keyof.ts@pos14[start=15,created=18]",
+      "success/types/alias-object-call-construct.ts@pos48[start=49,created=52]",
+      "success/types/alias-predicate.ts@pos24[start=25,created=29]",
+      "success/types/alias-qualified-body.ts@pos12[start=12,created=15]",
+      "success/types/alias-recursive.ts@pos10[start=11,created=15]",
+      "success/types/alias-reference.ts@pos8[start=9,created=12]"
+    ],
+    "over2Raw": [
+      "success/lexical/ident-escape-binding.ts@pos3[start=4,createdAt=10,rev=-1]",
+      "success/lexical/ident-unicode-binding.ts@pos3[start=4,createdAt=8,rev=-1]",
+      "success/lexical/identifier-unicode-escape.ts@pos3[start=4,createdAt=11,rev=-1]",
+      "success/lexical/identifier-unicode-escape.ts@pos20[start=21,createdAt=27,rev=-1]",
+      "success/lexical/identifier-unicode-escape.ts@pos40[start=41,createdAt=48,rev=-1]",
+      "success/lexical/identifier-unicode-escape.ts@pos50[start=51,createdAt=57,rev=-1]",
+      "success/lexical/identifier-unicode-escape.ts@pos62[start=63,createdAt=75,rev=-1]",
+      "success/types/alias-asserts.ts@pos10[start=10,createdAt=23,rev=11]",
+      "success/types/alias-conditional-branch-generic.ts@pos30[start=31,createdAt=36,rev=-1]",
+      "success/types/alias-conditional-branch-generic.ts@pos41[start=42,createdAt=45,rev=-1]",
+      "success/types/alias-conditional-infer.ts@pos21[start=22,createdAt=27,rev=-1]",
+      "success/types/alias-conditional-qualified.ts@pos25[start=25,createdAt=30,rev=-1]",
+      "success/types/alias-ctor-type-abstract.ts@pos27[start=28,createdAt=32,rev=31]",
+      "success/types/alias-fn-type-generic.ts@pos10[start=10,createdAt=24,rev=11]",
+      "success/types/alias-fn-type-generic.ts@pos13[start=13,createdAt=24,rev=14]",
+      "success/types/alias-fn-type-generic.ts@pos15[start=16,createdAt=24,rev=17]",
+      "success/types/alias-fn-type.ts@pos10[start=10,createdAt=22,rev=11]",
+      "success/types/alias-generic-args.ts@pos8[start=9,createdAt=14,rev=-1]",
+      "success/types/alias-generic-default.ts@pos7[start=7,createdAt=17,rev=8]",
+      "success/types/alias-generic-nested-tight-close.ts@pos7[start=7,createdAt=32,rev=8]",
+      "success/types/alias-generic-nested-tight-close.ts@pos16[start=17,createdAt=32,rev=22]",
+      "success/types/alias-generic-nested-tight-close.ts@pos23[start=23,createdAt=32,rev=28]",
+      "success/types/alias-generic-nested-tight-close.ts@pos29[start=29,createdAt=32,rev=30]",
+      "success/types/alias-indexed-access.ts@pos8[start=9,createdAt=12,rev=-1]",
+      "success/types/alias-indexed-generic.ts@pos8[start=9,createdAt=12,rev=-1]",
+      "success/types/alias-indexed-generic.ts@pos13[start=13,createdAt=16,rev=14]",
+      "success/types/alias-infer-constraint.ts@pos21[start=22,createdAt=27,rev=-1]",
+      "success/types/alias-infer-constraint.ts@pos33[start=34,createdAt=50,rev=35]",
+      "success/types/alias-keyof.ts@pos14[start=15,createdAt=19,rev=18]",
+      "success/types/alias-mapped-modifiers.ts@pos25[start=25,createdAt=49,rev=26]",
+      "success/types/alias-mapped-modifiers.ts@pos35[start=36,createdAt=49,rev=37]",
+      "success/types/alias-mapped-modifiers.ts@pos41[start=42,createdAt=49,rev=43]",
+      "success/types/alias-mapped-modifiers.ts@pos44[start=44,createdAt=49,rev=45]",
+      "success/types/alias-mapped-remap.ts@pos15[start=15,createdAt=50,rev=16]",
+      "success/types/alias-mapped-remap.ts@pos25[start=26,createdAt=50,rev=27]",
+      "success/types/alias-mapped-remap.ts@pos37[start=37,createdAt=50,rev=38]",
+      "success/types/alias-mapped-remap.ts@pos42[start=43,createdAt=50,rev=44]",
+      "success/types/alias-mapped-remap.ts@pos45[start=45,createdAt=50,rev=46]",
+      "success/types/alias-mapped.ts@pos15[start=15,createdAt=37,rev=16]",
+      "success/types/alias-mapped.ts@pos25[start=26,createdAt=37,rev=27]",
+      "success/types/alias-mapped.ts@pos29[start=30,createdAt=37,rev=31]",
+      "success/types/alias-mapped.ts@pos32[start=32,createdAt=37,rev=33]",
+      "success/types/alias-object-call-construct.ts@pos12[start=12,createdAt=55,rev=13]",
+      "success/types/alias-object-call-construct.ts@pos37[start=37,createdAt=55,rev=38]",
+      "success/types/alias-object-call-construct.ts@pos48[start=49,createdAt=55,rev=52]",
+      "success/types/alias-object-index-readonly.ts@pos21[start=21,createdAt=42,rev=22]",
+      "success/types/alias-object-method.ts@pos10[start=11,createdAt=32,rev=12]",
+      "success/types/alias-object-method.ts@pos13[start=13,createdAt=32,rev=14]",
+      "success/types/alias-object-optional-readonly.ts@pos19[start=20,createdAt=33,rev=21]",
+      "success/types/alias-object.ts@pos10[start=11,createdAt=23,rev=12]",
+      "success/types/alias-predicate.ts@pos10[start=10,createdAt=23,rev=11]",
+      "success/types/alias-predicate.ts@pos24[start=25,createdAt=29,rev=-1]",
+      "success/types/alias-qualified-body.ts@pos12[start=12,createdAt=16,rev=15]",
+      "success/types/alias-recursive.ts@pos10[start=11,createdAt=28,rev=15]",
+      "success/types/alias-recursive.ts@pos16[start=17,createdAt=28,rev=18]",
+      "success/types/alias-reference.ts@pos8[start=9,createdAt=12,rev=-1]",
+      "success/types/alias-tuple-named.ts@pos10[start=10,createdAt=32,rev=11]",
+      "success/types/alias-tuple-named.ts@pos20[start=21,createdAt=32,rev=22]"
+    ]
+  },
+  "fingerprintPath": "_coord/probe/fp-T0-after.json"
+}
