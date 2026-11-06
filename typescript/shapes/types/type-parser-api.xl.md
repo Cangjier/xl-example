@@ -11,9 +11,27 @@ import { TypeParser } from "./type-parser.xl.md"
 
 # class TypeParserApi
 
+## static field AliasFallbackCount:int = 0
+
+## static field ReturnTypeFallbackCount:int = 0
+
+## static method ResetFallbackCounts:()=>void
+
+```ts
+TypeParserApi.AliasFallbackCount = 0;
+TypeParserApi.ReturnTypeFallbackCount = 0;
+```
+
+## static method FallbackCount:()=>int
+
+```ts
+return TypeParserApi.AliasFallbackCount + TypeParserApi.ReturnTypeFallbackCount;
+```
+
 ## static method ParseAlias:(units:Array<Token>, limit:int, template:Template)=>TypeAliasParsed
 
 ```ts
+TypeParserApi.AliasFallbackCount++;
 const parser = new TypeParser(units, limit, template);
 return parser.Alias();
 ```
@@ -35,6 +53,7 @@ return type;
 ## static method ParseCompleteReturnType:(units:Array<Token>, limit:int, template:Template)=>Token
 
 ```ts
+TypeParserApi.ReturnTypeFallbackCount++;
 const parser = new TypeParser(units, limit, template);
 const type = parser.ParseTypeReturn();
 parser.SkipTrivia();
