@@ -16,6 +16,7 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { StatementUtil } from "../statements/statement-util.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { TypeAliasEndPossibleShape } from "./type-alias-end-possible-shape.xl.md"
+import { TypeCatalogFactory } from "./type-catalog-factory.xl.md"
 import { TypeFunctionArrowPossibleShape } from "./type-function-incremental.xl.md"
 import { TypeAliasChainPossibleShape } from "./type-conditional-chain.xl.md"
 import { TypeAliasIndexPossibleShape } from "./type-alias-member-possible-shape.xl.md"
@@ -99,17 +100,8 @@ alias.Pos = ItemUtil.PositionOf(units, keywordIndex);
 alias.SignIn(keyword.SourceRange.Start);
 alias.Add(identifier);
 alias.CatalogGuide = new CatalogGuide(
-  [
-    new TypeParameterListOpenPossibleShape(),
-    new TypeAliasBodyPossibleShape(),
-    new TypeAliasBodyKeywordPossibleShape(),
-    new TypeAliasArraySuffixPossibleShape(),
-    new TypeAliasMemberPossibleShape(),
-    new TypeAliasIndexPossibleShape(),
-    new TypeAliasOperatorMemberPossibleShape(),
-    new TypeFunctionArrowPossibleShape(),
-    new TypeAliasChainPossibleShape(),
-  ],
+  // [T-CAT:BUILD] 候选目录由 TypeCatalogFactory 统一提供（顺序与原内联数组逐项一致）；本文件此后冻结。
+  TypeCatalogFactory.CreateBody(),
   new TypeAliasEndPossibleShape(),
 );
 units.splice(start, nameIndex - start + 1, alias);
