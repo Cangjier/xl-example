@@ -16,6 +16,7 @@ import { TypeConditionalGrow } from "./type-conditional-grow-util.xl.md"
 import { TypeAliasGrow } from "./type-alias-grow-util.xl.md"
 import { TypeConditionalScan } from "./type-conditional-scan-util.xl.md"
 import { TypeParserApi } from "./type-parser-api.xl.md"
+import { TypeFallbackGuard } from "./type-fallback-guard.xl.md"
 ```
 
 
@@ -48,6 +49,8 @@ if (this.HasBuiltType()) {
   PossibleShape.StampAll(this, context.Index);
   return CloseStates.Nothing;
 }
+// 收口（T5）：开关开时这里不再允许「静默全量解析」——未增量的形态直接 throw。
+TypeFallbackGuard.Hit("TypeAliasDeclarationShape.Close", TypeFallbackGuard.Describe(this.Data));
 const parsed = TypeParserApi.ParseAlias(this.Data, this.Data.length, this.Template);
 const type = parsed.Type!;
 TypeAliasDeclarationShape.Apply(this, parsed, type.SourceRange.End);
